@@ -1,0 +1,98 @@
+{
+  "note": "Genuine Razorpay test-mode payment.failed payloads, captured from a live webhook delivery and redacted. Account id, email, contact, vpa and cardholder name are replaced; the field SHAPE is unmodified. Used to assert the synthetic generator has not drifted from the provider's real payload structure.",
+  "captured_from": "razorpay test mode, live ngrok webhook delivery",
+  "samples_by_method": {
+    "wallet": {
+      "event": "payment.failed",
+      "entity": "event",
+      "payload": {
+        "payment": {
+          "entity": {
+            "id": "pay_TVzJn2ggGRfdO0",
+            "fee": null,
+            "tax": null,
+            "vpa": null,
+            "bank": null,
+            "email": "redacted@example.com",
+            "notes": [],
+            "amount": 10000,
+            "entity": "payment",
+            "method": "wallet",
+            "status": "failed",
+            "wallet": "airtelmoney",
+            "card_id": null,
+            "contact": "+910000000000",
+            "captured": false,
+            "currency": "INR",
+            "order_id": "order_TVzIy5iJCEZ8An",
+            "created_at": 1788094396,
+            "error_code": "BAD_REQUEST_ERROR",
+            "error_step": "payment_authentication",
+            "invoice_id": null,
+            "description": "#TVzHBnDtXrWRqq",
+            "error_reason": "payment_cancelled",
+            "error_source": "customer",
+            "acquirer_data": {
+              "transaction_id": null
+            },
+            "international": false,
+            "refund_status": null,
+            "amount_refunded": 0,
+            "error_description": "Your payment has been cancelled. Try again or complete the payment later."
+          }
+        }
+      },
+      "contains": [
+        "payment"
+      ],
+      "account_id": "acc_REDACTED000000",
+      "created_at": 1788094409
+    },
+    "netbanking": {
+      "event": "payment.failed",
+      "entity": "event",
+      "payload": {
+        "payment": {
+          "entity": {
+            "id": "pay_TW04w4bL76k2Qu",
+            "fee": null,
+            "tax": null,
+            "vpa": null,
+            "bank": "BARB_R",
+            "email": "redacted@example.com",
+            "notes": [],
+            "amount": 10000,
+            "entity": "payment",
+            "method": "netbanking",
+            "status": "failed",
+            "wallet": null,
+            "card_id": null,
+            "contact": "+910000000000",
+            "captured": false,
+            "currency": "INR",
+            "order_id": "order_TVzIy5iJCEZ8An",
+            "created_at": 1788097074,
+            "error_code": "BAD_REQUEST_ERROR",
+            "error_step": "payment_authentication",
+            "invoice_id": null,
+            "description": "#TVzHBnDtXrWRqq",
+            "error_reason": "payment_cancelled",
+            "error_source": "customer",
+            "acquirer_data": {
+              "bank_transaction_id": null
+            },
+            "international": false,
+            "refund_status": null,
+            "amount_refunded": 0,
+            "error_description": "Your payment has been cancelled. Try again or complete the payment later."
+          }
+        }
+      },
+      "contains": [
+        "payment"
+      ],
+      "account_id": "acc_REDACTED000000",
+      "created_at": 1788097080
+    }
+  }
+}

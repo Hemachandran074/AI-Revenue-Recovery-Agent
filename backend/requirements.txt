@@ -1,0 +1,39 @@
+# Direct dependencies, pinned to the versions actually resolved and installed
+# in this repo's .venv on 2026-08-29 (Python 3.12.6). Regenerate pins
+# deliberately, not incidentally.
+#
+#   python -m venv .venv
+#   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# --- Web framework (DETECT webhook receiver, dashboard API) ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+
+# --- Schemas & config ---
+pydantic==2.13.5
+pydantic-settings==2.15.0
+
+# --- Storage: Postgres for the event pipeline + audit log (Phase 2 onward) ---
+sqlalchemy==2.0.52
+psycopg[binary]==3.3.4
+
+# --- LLM, DIAGNOSE stage only ---
+google-genai==2.20.0
+
+# --- Payment providers. Both installed while the provider decision is open;
+#     drop the unused one once context/progress-tracker.md records the choice. ---
+stripe==15.6.0
+razorpay==2.0.1
+
+# --- Messaging, EXECUTE stage. No voice channel in this project. ---
+sendgrid==6.12.5
+twilio==9.11.0
+
+# --- Time handling (quiet-hours guardrail needs customer-local time) ---
+python-dateutil==2.9.0.post0
+tzdata==2026.3
+
+# --- Dev / test ---
+pytest==9.1.1
+httpx==0.28.1
+ruff==0.16.5

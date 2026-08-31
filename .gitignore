@@ -1,0 +1,35 @@
+# Secrets — never commit. `.env.example` is the committed, placeholder-only version.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Local data / scratch
+*.sqlite3
+*.db
+data/local/
+
+# Node (Phase 6 dashboard)
+node_modules/
+dist/
+build/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json

@@ -1,0 +1,824 @@
+{
+  "prompt_version": "v2",
+  "model": "gemini-2.5-flash-lite",
+  "confidence_threshold": 0.75,
+  "events": 75,
+  "api_calls": 38,
+  "cache_hits": 37,
+  "classifier_unavailable": 20,
+  "scorable_events": 55,
+  "correct": 52,
+  "accuracy_over_scorable": 0.9455,
+  "accuracy_over_all_events": 0.6933,
+  "escalated_to_unknown": 32,
+  "escalation_rate": 0.4267,
+  "per_category": {
+    "bank_risk_block": {
+      "total": 4,
+      "correct": 2,
+      "accuracy": 0.5
+    },
+    "card_expired": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "checkout_friction": {
+      "total": 12,
+      "correct": 5,
+      "accuracy": 0.4167
+    },
+    "genuine_abandonment": {
+      "total": 6,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "insufficient_funds": {
+      "total": 14,
+      "correct": 14,
+      "accuracy": 1.0
+    },
+    "network_error": {
+      "total": 6,
+      "correct": 3,
+      "accuracy": 0.5
+    },
+    "sca_abandoned": {
+      "total": 16,
+      "correct": 16,
+      "accuracy": 1.0
+    },
+    "unknown": {
+      "total": 15,
+      "correct": 12,
+      "accuracy": 0.8
+    }
+  },
+  "confusions": {
+    "checkout_friction -> unknown": 7,
+    "genuine_abandonment -> unknown": 6,
+    "unknown -> bank_risk_block": 3,
+    "network_error -> unknown": 3,
+    "card_expired -> unknown": 2,
+    "bank_risk_block -> unknown": 2
+  },
+  "unsafe_confusions": {},
+  "latency_ms": {
+    "mean": 3050.3,
+    "median": 2180.2,
+    "p95": 8046.4,
+    "max": 8046.4
+  },
+  "rows": [
+    {
+      "event_id": "pay_hzb9ukZ8ND1S6x",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the error_description indicates the UPI collect request expired, meaning the customer did not approve the authentication request in time."
+    },
+    {
+      "event_id": "pay_FMCArnWGhwBhsR",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "Decline code 'insufficient_funds' and error description explicitly state the reason for the payment failure."
+    },
+    {
+      "event_id": "pay_44bpnegMcCMRT3",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_frequency_limit_exceeded",
+      "expected": "unknown",
+      "actual": "bank_risk_block",
+      "confidence": 0.8,
+      "correct": false,
+      "reasoning": "The decline code 'transaction_frequency_limit_exceeded' indicates a block by the bank or network due to excessive transaction attempts, which falls under bank_risk_block."
+    },
+    {
+      "event_id": "pay_a2gBi4qUxWzxcz",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The error step is payment_authentication and the decline code indicates the payment was cancelled by the customer during the authentication process."
+    },
+    {
+      "event_id": "pay_aE6iPlMZaoqMZ8",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_0iQS18VR6HfPQB",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The error step is payment_authentication and the decline code indicates the payment was cancelled by the customer during the authentication process."
+    },
+    {
+      "event_id": "pay_LUKaqPxSpdQhDt",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_vpa",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'invalid_vpa' indicates a customer input error, which does not fit into any specific root cause category and thus defaults to 'unknown'."
+    },
+    {
+      "event_id": "pay_KPWRokCeZ2csbu",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_el8XOFDWKWLCR7",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_K56Dju3TlXfFvO",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "plink_Ys3I4w4AqyPFKM",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The event type is checkout_abandoned and prior_attempts is 2, indicating the customer attempted payment more than once."
+    },
+    {
+      "event_id": "pay_JMMUMsX8Sb22Q4",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the error source 'issuer' does not specify the reason for the refusal."
+    },
+    {
+      "event_id": "pay_ilu1CNd3w8aFim",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the error source 'issuer' does not specify the reason for the refusal."
+    },
+    {
+      "event_id": "pay_khxTPYcy4OqXIN",
+      "event_type": "payment_failed",
+      "decline_code": "payment_timed_out",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The error_step is 'payment_authentication' and the error_description states the payment was not completed in time, indicating the customer abandoned the authentication process."
+    },
+    {
+      "event_id": "pay_x9zDKpSotR02fP",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the error_description indicates the UPI collect request expired, meaning the customer did not approve the authentication request in time."
+    },
+    {
+      "event_id": "pay_fPKoIVU27c66lA",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_fmCn60AVFWH3x0",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_cancelled' and error step 'payment_authentication' indicate the customer cancelled during the authentication process."
+    },
+    {
+      "event_id": "pay_DgZUEW1u6nxuAc",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_frequency_limit_exceeded",
+      "expected": "unknown",
+      "actual": "bank_risk_block",
+      "confidence": 0.8,
+      "correct": false,
+      "reasoning": "The decline code 'transaction_frequency_limit_exceeded' indicates a block by the bank or network due to excessive transaction attempts, which falls under bank_risk_block."
+    },
+    {
+      "event_id": "pay_f6h1KQFj8fXGeU",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' with error description 'Payment failed' and error source 'bank' at the 'payment_authorization' step is uninformative, not specifying the exact reason for the bank's refusal."
+    },
+    {
+      "event_id": "pay_gdzKJ1FjdxaBfs",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' with error description 'Payment failed' and error source 'bank' at the 'payment_authorization' step is uninformative, not specifying the exact reason for the bank's refusal."
+    },
+    {
+      "event_id": "pay_1Q4JlsgEiVqUZJ",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_zz9Dr1yS2EZAP4",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the error source 'issuer' does not specify the reason for the refusal."
+    },
+    {
+      "event_id": "pay_UBfBM0lIsugfuQ",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_frequency_limit_exceeded",
+      "expected": "unknown",
+      "actual": "bank_risk_block",
+      "confidence": 0.8,
+      "correct": false,
+      "reasoning": "The decline code 'transaction_frequency_limit_exceeded' indicates a block by the bank or network due to excessive transaction attempts, which falls under bank_risk_block."
+    },
+    {
+      "event_id": "inv_pW1RzFjKOrOAyC",
+      "event_type": "invoice_overdue",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The event type is invoice_overdue and prior_attempts is 1, indicating the customer attempted payment and encountered friction."
+    },
+    {
+      "event_id": "pay_w712llpLuZVSw6",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the error_description indicates the UPI collect request expired, meaning the customer did not approve the authentication request in time."
+    },
+    {
+      "event_id": "pay_bVlFHy6JhqXqTC",
+      "event_type": "payment_failed",
+      "decline_code": "bank_technical_error",
+      "expected": "network_error",
+      "actual": "network_error",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The decline code 'bank_technical_error' and error source 'issuer_bank' indicate a transient technical fault at the bank, classifying it as a network error."
+    },
+    {
+      "event_id": "pay_WE9XebLeaqnc7d",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_4mCLByaTnnrWTZ",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_cancelled' and error step 'payment_authentication' indicate the customer cancelled during the authentication process."
+    },
+    {
+      "event_id": "pay_tpqQjTBYyeCMEL",
+      "event_type": "payment_failed",
+      "decline_code": "card_disabled_for_online_payments",
+      "expected": "bank_risk_block",
+      "actual": "bank_risk_block",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'card_disabled_for_online_payments' and error description explicitly state the card is not enabled for online transactions, which falls under a bank risk block."
+    },
+    {
+      "event_id": "pay_gnHpAF9djTrfc6",
+      "event_type": "payment_failed",
+      "decline_code": "bank_technical_error",
+      "expected": "network_error",
+      "actual": "network_error",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The decline code 'bank_technical_error' and error source 'issuer_bank' indicate a transient technical fault at the bank, classifying it as a network error."
+    },
+    {
+      "event_id": "pay_9fh18UjwtvDYnH",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "Decline code 'insufficient_funds' and error description explicitly state the reason for the payment failure."
+    },
+    {
+      "event_id": "plink_TnSTFuEwJ77YUr",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The event type is checkout_abandoned and prior_attempts is 2, indicating the customer attempted payment more than once."
+    },
+    {
+      "event_id": "pay_EDnvMju3TuU3wz",
+      "event_type": "payment_failed",
+      "decline_code": "payment_risk_check_failed",
+      "expected": "bank_risk_block",
+      "actual": "bank_risk_block",
+      "confidence": 0.85,
+      "correct": true,
+      "reasoning": "The decline code 'payment_risk_check_failed' and error description indicate a risk assessment failure by the gateway during payment authorization, which maps to a bank risk block."
+    },
+    {
+      "event_id": "pay_12e80QdWaAi1Oo",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The error step is payment_authentication and the decline code indicates the payment was cancelled by the customer, suggesting they abandoned the authentication process."
+    },
+    {
+      "event_id": "pay_Iw9XnCtDq2hfkZ",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_BaNwpKAlQQfHxe",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_XI0xI0WcWUCInB",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_otp",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the decline_code is invalid_otp, indicating the customer failed to authenticate."
+    },
+    {
+      "event_id": "pay_ylx4yxlCcqCDqo",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_u7NukzNV1tLvG1",
+      "event_type": "payment_failed",
+      "decline_code": "card_expired",
+      "expected": "card_expired",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "plink_ZMi3qdPE3xJ7gT",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_BG63d1hHjtkku7",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the error_description indicates the UPI collect request expired, meaning the customer did not approve the authentication request in time."
+    },
+    {
+      "event_id": "plink_VvYsKRWmlN2O5z",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The event type is checkout_abandoned and prior_attempts is 2, indicating the customer attempted payment more than once."
+    },
+    {
+      "event_id": "pay_av6NmZivTl6Z23",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_cancelled' and error step 'payment_authentication' indicate the customer cancelled during the authentication process."
+    },
+    {
+      "event_id": "pay_5IKQcl72ub9nLj",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the error source 'issuer' does not specify the reason for the refusal."
+    },
+    {
+      "event_id": "plink_fGPkL8LjkQNU5M",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_mKIjku2HChRnTL",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_vpa",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'invalid_vpa' indicates a customer input error, which does not fit into any specific root cause category and thus defaults to 'unknown'."
+    },
+    {
+      "event_id": "pay_J8yBlRLQyfXNsZ",
+      "event_type": "payment_failed",
+      "decline_code": "card_expired",
+      "expected": "card_expired",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_U92pdpf7BhDNMd",
+      "event_type": "payment_failed",
+      "decline_code": "card_declined",
+      "expected": "bank_risk_block",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "inv_s61ES1iWTECNa5",
+      "event_type": "invoice_overdue",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_cAxRUpCNsWVYCo",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_vpa",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'invalid_vpa' indicates a customer input error, which does not fit into any specific root cause category and thus defaults to 'unknown'."
+    },
+    {
+      "event_id": "plink_x6syAXvRMdYOPv",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_dryRMMc3emZWLU",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_AjtylWIEp2ot2T",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_vpa",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'invalid_vpa' indicates a customer input error, which does not fit into any specific root cause category and thus defaults to 'unknown'."
+    },
+    {
+      "event_id": "pay_GohmYipYFbxJKx",
+      "event_type": "payment_failed",
+      "decline_code": "upi_app_technical_error",
+      "expected": "network_error",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_9z9usVSOF9KYpu",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_vpa",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'invalid_vpa' indicates a customer input error, which does not fit into any specific root cause category and thus defaults to 'unknown'."
+    },
+    {
+      "event_id": "plink_5pKHkRykirtrFj",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_yC366yyfR9Q3Ii",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_on_vpa_restricted",
+      "expected": "bank_risk_block",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_dk7KB0UzFbyRBl",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the error_description indicates the UPI collect request expired, meaning the customer did not approve the authentication request in time."
+    },
+    {
+      "event_id": "plink_Y8deQOzxGZVRk8",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_YFw6KGuyrlbuMo",
+      "event_type": "payment_failed",
+      "decline_code": "upi_app_technical_error",
+      "expected": "network_error",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_Kg7FjvVepwukO4",
+      "event_type": "payment_failed",
+      "decline_code": "bank_technical_error",
+      "expected": "network_error",
+      "actual": "network_error",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The decline code 'bank_technical_error' and error source 'issuer_bank' indicate a transient technical fault at the bank, classifying it as a network error."
+    },
+    {
+      "event_id": "pay_C6ZKPmuMEGj9dC",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The error_step is payment_authentication and the error_description indicates the UPI collect request expired, meaning the customer did not approve the authentication request in time."
+    },
+    {
+      "event_id": "pay_TVPAoupA6Uur0e",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_cancelled' and error step 'payment_authentication' indicate the customer cancelled during the authentication process."
+    },
+    {
+      "event_id": "pay_n9B0nFru1svJKi",
+      "event_type": "payment_failed",
+      "decline_code": "gateway_technical_error",
+      "expected": "network_error",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "inv_iEeoyfUZggux4t",
+      "event_type": "invoice_overdue",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "plink_8WCl8knZmicBfR",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "pay_bM7Q1SrblrSWt6",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code and error description explicitly state insufficient funds."
+    },
+    {
+      "event_id": "pay_SEOlZieTX8Dcsm",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The error step is payment_authentication and the decline code indicates the payment was cancelled by the customer, suggesting they abandoned the authentication process."
+    },
+    {
+      "event_id": "pay_HnJuQEHyu9lD6I",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 0.9,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the error source 'issuer' does not specify the reason for the refusal."
+    },
+    {
+      "event_id": "plink_mjHWp5dZ2ZZMzQ",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 0.8,
+      "correct": true,
+      "reasoning": "The event type is checkout_abandoned and prior_attempts is 2, indicating the customer attempted payment more than once."
+    },
+    {
+      "event_id": "plink_tKMg7vsDPIHF48",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "plink_gaGQ911xJPMMst",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "plink_9Tfw7CPqVEnm0I",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "plink_Ju2rHD63aYSNLH",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    },
+    {
+      "event_id": "inv_oS4wtigyGLtke0",
+      "event_type": "invoice_overdue",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": false,
+      "reasoning": "Classifier unavailable: the classifier was rate limited and did not run, so no diagnosis was made. Escalated to human review as the safe default. This is an operational failure, not a judgement about the evidence."
+    }
+  ]
+}

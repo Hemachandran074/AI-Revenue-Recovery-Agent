@@ -1,0 +1,47 @@
+# Local Postgres for the event pipeline + audit log.
+#
+#   docker compose up -d          start (Docker Desktop must be running)
+#   docker compose ps             check health
+#   docker compose logs postgres  tail logs
+#   docker compose down           stop, keeps data
+#   docker compose down -v        stop and DELETE the volume (destroys audit log)
+#
+# Reads POSTGRES_* from the repo-root .env. Those same values are the single
+# source of truth: the app derives its connection URL from them (see
+# Settings.effective_database_url), so there is nothing to keep in sync by hand.
+
+services:
+  postgres:
+    # Pinned to 17 on purpose: the Postgres 18 official image changed its data
+    # directory layout, and the PGDATA pattern below is known-good on 17.
+    # 17 is supported to 2029. Bump deliberately, not incidentally.
+    image: postgres:17-alpine
+    container_name: revenue_recovery_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-recovery}
+      # No default: compose refuses to start rather than booting a database
+      # with a guessable password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-revenue_recovery}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      # Bound to loopback, not 0.0.0.0 — this database must not be reachable
+      # from the network.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Lets `docker compose up --wait` block until the DB actually accepts
+      # connections, instead of racing the app against startup.
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-recovery} -d ${POSTGRES_DB:-revenue_recovery}
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  pgdata:
+    name: revenue_recovery_pgdata

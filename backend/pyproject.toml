@@ -1,0 +1,15 @@
+[tool.pytest.ini_options]
+# Lets tests import the `app` package without an editable install.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "integration: needs the Postgres container running. Skipped, not failed, when unreachable, so the suite stays green without Docker.",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
