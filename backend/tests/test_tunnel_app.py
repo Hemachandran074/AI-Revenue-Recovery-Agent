@@ -21,6 +21,12 @@ LOCAL_ONLY_PATHS = [
     "/docs",
     "/redoc",
     "/openapi.json",
+    # Phase 6. These are the worst of the set to leak: the dashboard and its JSON
+    # counterparts return customer ids, amounts at risk, decline reasons and
+    # payment-link ids for every event in the database.
+    "/dashboard",
+    "/api/metrics",
+    "/api/events",
 ]
 
 

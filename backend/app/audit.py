@@ -21,6 +21,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app import logging_setup
 from app.models import AuditLogEntry
 from app.schemas import Stage
 
@@ -84,6 +85,17 @@ def record(
         notes=notes,
     )
     session.add(entry)
+
+    # The streaming half of code-standards.md's logging requirement, emitted here
+    # rather than by each stage so a stage cannot log without auditing or audit
+    # without logging. The summaries have already been checked for card data above.
+    logging_setup.log_stage(
+        event_id=event_id,
+        stage=str(stage),
+        input_summary=input_summary,
+        output_summary=output_summary,
+        notes=notes,
+    )
     return entry
 
 

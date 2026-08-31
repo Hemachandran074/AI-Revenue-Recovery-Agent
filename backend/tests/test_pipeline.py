@@ -171,7 +171,7 @@ def pinned_settings(**overrides: Any) -> Settings:
         "hard_stop_days": 7,
         "insufficient_funds_retry_days": 3,
         "diagnose_confidence_threshold": 0.75,
-        "gemini_model": "gemini-2.5-flash-lite",
+        "gemini_model": "gemini-3.1-flash-lite",
     }
     base.update(overrides)
     return Settings(**base)
@@ -435,7 +435,7 @@ def test_diagnosis_record_matches_the_diagnosis_returned(session, envelope) -> N
     assert row.root_cause == str(outcome.diagnosis.root_cause)
     assert row.confidence == pytest.approx(outcome.diagnosis.confidence)
     assert row.classifier_unavailable is False
-    assert row.model == "gemini-2.5-flash-lite"
+    assert row.model == "gemini-3.1-flash-lite"
     assert row.prompt_version
 
 

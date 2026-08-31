@@ -11,6 +11,10 @@ Three tables in Phase 2:
                the full raw payload for audit.
 ``audit_log``  one row per event per stage. The thing that makes
                "100% audit trail coverage" a query rather than a claim.
+
+Later phases add ``diagnoses``, ``decisions``, ``execution_results`` (3b and 5)
+and ``event_latencies`` (6). See the section divider further down for why those
+are separate tables rather than columns.
 """
 
 from __future__ import annotations
@@ -257,6 +261,43 @@ class DecisionRecord(Base):
         JSONType, default=list
     )
     decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class EventLatency(Base):
+    """Measured pipeline latency for one event (Phase 6).
+
+    This table exists because the latency metric CANNOT be derived from the
+    timestamps on the other tables, which is not obvious and cost a debugging
+    session to discover. ``events.received_at``, ``decisions.decided_at`` and
+    ``execution_results.executed_at`` all default to ``func.now()``, and Postgres
+    ``now()`` is ``transaction_timestamp()`` — stable for the whole transaction.
+    The pipeline writes all four stages in ONE transaction, so those three columns
+    resolve to the identical instant and any subtraction between them yields
+    exactly zero. A dashboard built on that would have reported 0 ms for every
+    event and looked like a triumph.
+
+    So the numbers here come from ``perf_counter`` around the real run, recorded
+    by ``pipeline.process_event``.
+
+    Two figures, not one, per Known issue A. ``architecture.md`` asks for
+    DETECT -> EXECUTE under 60 seconds, but a quiet-hours deferral correctly
+    delays a send by hours, and a single blended number would score that
+    compliance as a failure.
+    """
+
+    __tablename__ = "event_latencies"
+
+    event_id: Mapped[str] = mapped_column(
+        ForeignKey("events.event_id"), primary_key=True
+    )
+    # received -> decided. The real proof of real-time operation, and the figure
+    # that should be held under the 60-second target.
+    decision_latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
+    # received -> dispatched. Legitimately long when a send is deferred.
+    send_latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 

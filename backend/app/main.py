@@ -1,12 +1,21 @@
 """FastAPI application entrypoint.
 
-Exposes health/readiness plus the Razorpay webhook receiver (Phase 2, DETECT).
+Serves health/readiness, the Razorpay webhook receiver (DETECT), and the Phase 6
+batch dashboard at ``/dashboard`` with its JSON counterparts under ``/api``.
 
 SECURITY NOTE: there is no authentication on the ops endpoints. That is an
 intentional, documented choice for a local demo tool
 (``context/ui-context.md`` -> "No auth/login system"), and it is bound to
 127.0.0.1 by default for that reason. Do not expose it to a network or deploy it
 without adding an auth layer first.
+
+The dashboard raises the stakes of that note rather than changing it. ``/health``
+leaked nothing; ``/dashboard``, ``/api/metrics`` and ``/api/events`` return
+customer ids, amounts at risk, decline reasons and payment-link ids for every
+event in the database. On a shared or port-forwarded machine that is a real
+disclosure. It stays unauthenticated because ui-context.md scopes this as a local
+demo tool, and it is kept off ``app.tunnel`` for exactly this reason — the public
+surface contains only the signature-verified webhook route.
 
 The webhook route is the exception and is NOT unauthenticated: every request must
 carry a valid ``X-Razorpay-Signature`` computed with the shared webhook secret,
@@ -20,22 +29,33 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.dashboard import router as dashboard_router
+from app.logging_setup import configure_logging
 from app.webhooks import router as webhooks_router
+
+# Structured JSON for pipeline-stage records, plain text for everything else.
+# Called at import so a stage log line emitted during startup is formatted too.
+configure_logging()
 
 app = FastAPI(
     title="AI Revenue Recovery Agent",
-    version="0.2.0",
+    version="0.6.0",
     summary="Detects revenue at risk, diagnoses root cause, executes a bounded "
             "recovery workflow. Test-mode/demo build only.",
 )
 
 app.include_router(webhooks_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/health", tags=["ops"])
 def health() -> dict[str, str]:
     """Liveness check. No dependencies, so it works in an unconfigured repo."""
-    return {"status": "ok", "service": "revenue-recovery-agent", "phase": "2-detect"}
+    return {
+        "status": "ok",
+        "service": "revenue-recovery-agent",
+        "phase": "6-audit-and-metrics",
+    }
 
 
 @app.get("/events/recent", tags=["ops"])

@@ -52,7 +52,14 @@ from sqlalchemy.orm import Session
 from app import audit, decide, detect, diagnose, execute
 from app.channels import MessageSender, PaymentLinkFactory
 from app.diagnose import CLASSIFIER_UNAVAILABLE_PREFIX, LlmDiagnosis, SupportsGenerate
-from app.models import Customer, DecisionRecord, DiagnosisRecord, Event, ExecutionRecord
+from app.models import (
+    Customer,
+    DecisionRecord,
+    DiagnosisRecord,
+    Event,
+    EventLatency,
+    ExecutionRecord,
+)
 from app.schemas import (
     Decision,
     DeliveryStatus,
@@ -248,6 +255,11 @@ def process_event(
             channel=str(outcome.channel),
             delivery_status=str(outcome.result.delivery_status),
             customer_outcome=str(outcome.result.customer_outcome),
+            # Taken from the outcome rather than left to the column default. The
+            # default is func.now(), which in Postgres is the TRANSACTION start
+            # time, so it would disagree with the time the audit trail reports for
+            # the same action.
+            executed_at=outcome.result.executed_at,
             # Stays null until a provider webhook confirms payment. Pre-filling it
             # would invent revenue.
             amount_recovered_minor=None,
@@ -274,6 +286,18 @@ def process_event(
     # refused send must not suppress future real sends.
     if outcome.result.delivery_status is DeliveryStatus.SENT:
         customer.last_contacted_at = evaluated_at
+
+    # Persisted, not derived. Every timestamp column on the stage tables defaults
+    # to func.now(), which Postgres resolves to the TRANSACTION start time, and
+    # all four stages are written in one transaction — so subtracting them would
+    # give exactly 0 ms for every event. See EventLatency's docstring.
+    session.merge(
+        EventLatency(
+            event_id=event_record.event_id,
+            decision_latency_ms=round(decision_latency_ms, 2),
+            send_latency_ms=round(send_latency_ms, 2),
+        )
+    )
 
     session.flush()
 

@@ -1,0 +1,362 @@
+{
+  "prompt_version": "v2",
+  "model": "gemini-3.1-flash-lite",
+  "confidence_threshold": 0.75,
+  "events": 30,
+  "api_calls": 15,
+  "cache_hits": 15,
+  "classifier_unavailable": 0,
+  "scorable_events": 30,
+  "correct": 30,
+  "accuracy_over_scorable": 1.0,
+  "accuracy_over_all_events": 1.0,
+  "escalated_to_unknown": 6,
+  "escalation_rate": 0.2,
+  "per_category": {
+    "bank_risk_block": {
+      "total": 3,
+      "correct": 3,
+      "accuracy": 1.0
+    },
+    "checkout_friction": {
+      "total": 4,
+      "correct": 4,
+      "accuracy": 1.0
+    },
+    "genuine_abandonment": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "insufficient_funds": {
+      "total": 8,
+      "correct": 8,
+      "accuracy": 1.0
+    },
+    "network_error": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1.0
+    },
+    "sca_abandoned": {
+      "total": 7,
+      "correct": 7,
+      "accuracy": 1.0
+    },
+    "unknown": {
+      "total": 6,
+      "correct": 6,
+      "accuracy": 1.0
+    }
+  },
+  "confusions": {},
+  "unsafe_confusions": {},
+  "latency_ms": {
+    "mean": 3838.7,
+    "median": 3249.9,
+    "p95": 9916.7,
+    "max": 9916.7
+  },
+  "rows": [
+    {
+      "event_id": "pay_hzb9ukZ8ND1S6x",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states the UPI collect request expired during the authentication step, which indicates the customer did not complete the required action."
+    },
+    {
+      "event_id": "pay_FMCArnWGhwBhsR",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code explicitly states insufficient_funds, which is a clear indicator of the root cause."
+    },
+    {
+      "event_id": "pay_44bpnegMcCMRT3",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_frequency_limit_exceeded",
+      "expected": "bank_risk_block",
+      "actual": "bank_risk_block",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The decline code 'transaction_frequency_limit_exceeded' indicates a restriction on the payment instrument or account, which is a form of risk or eligibility block."
+    },
+    {
+      "event_id": "pay_a2gBi4qUxWzxcz",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The payment failed during the payment_authentication step with a cancellation reason, indicating the customer did not complete the required authentication process."
+    },
+    {
+      "event_id": "pay_aE6iPlMZaoqMZ8",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    },
+    {
+      "event_id": "pay_0iQS18VR6HfPQB",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The payment failed during the payment_authentication step with a cancellation reason, indicating the customer did not complete the required authentication process."
+    },
+    {
+      "event_id": "pay_LUKaqPxSpdQhDt",
+      "event_type": "payment_failed",
+      "decline_code": "invalid_vpa",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error indicates a malformed VPA input, which is a customer data error and does not fall into any of the defined root cause categories."
+    },
+    {
+      "event_id": "pay_KPWRokCeZ2csbu",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    },
+    {
+      "event_id": "plink_Ys3I4w4AqyPFKM",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The checkout was abandoned but there were 2 prior_attempts, indicating the customer demonstrated intent and encountered friction."
+    },
+    {
+      "event_id": "pay_el8XOFDWKWLCR7",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    },
+    {
+      "event_id": "pay_ilu1CNd3w8aFim",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the issuer source does not specify why the authorization was refused."
+    },
+    {
+      "event_id": "inv_pW1RzFjKOrOAyC",
+      "event_type": "invoice_overdue",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The invoice is overdue and prior_attempts is 1, indicating the customer attempted payment but failed to complete the transaction."
+    },
+    {
+      "event_id": "pay_K56Dju3TlXfFvO",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    },
+    {
+      "event_id": "pay_JMMUMsX8Sb22Q4",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the issuer source does not specify why the authorization was refused."
+    },
+    {
+      "event_id": "pay_khxTPYcy4OqXIN",
+      "event_type": "payment_failed",
+      "decline_code": "payment_timed_out",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error step 'payment_authentication' combined with the description that the payment was not completed in time indicates the customer failed to finish the authentication process."
+    },
+    {
+      "event_id": "pay_x9zDKpSotR02fP",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states the UPI collect request expired during the authentication step, which indicates the customer did not complete the required action."
+    },
+    {
+      "event_id": "plink_fGPkL8LjkQNU5M",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The event is a checkout_abandoned with prior_attempts equal to 1, indicating the customer attempted payment but failed to complete the process."
+    },
+    {
+      "event_id": "plink_TnSTFuEwJ77YUr",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "checkout_friction",
+      "actual": "checkout_friction",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The checkout was abandoned but there were 2 prior_attempts, indicating the customer demonstrated intent and encountered friction."
+    },
+    {
+      "event_id": "pay_fPKoIVU27c66lA",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    },
+    {
+      "event_id": "pay_gdzKJ1FjdxaBfs",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the source 'bank' does not specify whether the refusal was due to funds, risk, or a technical issue."
+    },
+    {
+      "event_id": "pay_fmCn60AVFWH3x0",
+      "event_type": "payment_failed",
+      "decline_code": "payment_cancelled",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The error step 'payment_authentication' combined with a 'payment_cancelled' decline code indicates the customer was present during the authentication process and chose to cancel."
+    },
+    {
+      "event_id": "pay_DgZUEW1u6nxuAc",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_frequency_limit_exceeded",
+      "expected": "bank_risk_block",
+      "actual": "bank_risk_block",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The decline code 'transaction_frequency_limit_exceeded' indicates a restriction on the payment instrument or account, which is a form of risk or eligibility block."
+    },
+    {
+      "event_id": "pay_f6h1KQFj8fXGeU",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the source 'bank' does not specify whether the refusal was due to funds, risk, or a technical issue."
+    },
+    {
+      "event_id": "pay_1Q4JlsgEiVqUZJ",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    },
+    {
+      "event_id": "plink_Y8deQOzxGZVRk8",
+      "event_type": "checkout_abandoned",
+      "decline_code": null,
+      "expected": "genuine_abandonment",
+      "actual": "genuine_abandonment",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The checkout was abandoned with zero prior attempts, indicating the customer never initiated a payment."
+    },
+    {
+      "event_id": "pay_zz9Dr1yS2EZAP4",
+      "event_type": "payment_failed",
+      "decline_code": "payment_failed",
+      "expected": "unknown",
+      "actual": "unknown",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code 'payment_failed' and error description 'Payment failed' are uninformative, and the issuer source does not specify why the authorization was refused."
+    },
+    {
+      "event_id": "pay_UBfBM0lIsugfuQ",
+      "event_type": "payment_failed",
+      "decline_code": "transaction_frequency_limit_exceeded",
+      "expected": "bank_risk_block",
+      "actual": "bank_risk_block",
+      "confidence": 0.95,
+      "correct": true,
+      "reasoning": "The decline code 'transaction_frequency_limit_exceeded' indicates a restriction on the payment instrument or account, which is a form of risk or eligibility block."
+    },
+    {
+      "event_id": "pay_w712llpLuZVSw6",
+      "event_type": "payment_failed",
+      "decline_code": "payment_collect_request_expired",
+      "expected": "sca_abandoned",
+      "actual": "sca_abandoned",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states the UPI collect request expired during the authentication step, which indicates the customer did not complete the required action."
+    },
+    {
+      "event_id": "pay_bVlFHy6JhqXqTC",
+      "event_type": "payment_failed",
+      "decline_code": "bank_technical_error",
+      "expected": "network_error",
+      "actual": "network_error",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The decline code 'bank_technical_error' and the error description explicitly identify a transient technical fault at the bank."
+    },
+    {
+      "event_id": "pay_WE9XebLeaqnc7d",
+      "event_type": "payment_failed",
+      "decline_code": "insufficient_funds",
+      "expected": "insufficient_funds",
+      "actual": "insufficient_funds",
+      "confidence": 1.0,
+      "correct": true,
+      "reasoning": "The error description explicitly states that the payment failed due to insufficient balance in the account."
+    }
+  ]
+}

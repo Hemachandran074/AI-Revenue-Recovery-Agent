@@ -3,26 +3,34 @@
 > Update this file after every completed task. This is the source of truth
 > for what's actually built vs. planned. Don't let it go stale.
 
-## Status: Phases 0, 1, 1b, 2, 2b, 3, 3b, 4 and 5 COMPLETE (commits still pending)
+## Status: Phases 0-6 COMPLETE (commits still pending)
 
 ## Current phase
-608 tests passing (0 skipped with the container up), ruff clean. **All four stages
-are now chained.** A signed webhook delivery runs DETECT -> DIAGNOSE -> DECIDE ->
-EXECUTE inline and writes four audit entries, so the end-to-end trail the demo
-depends on exists for the first time.
+708 tests passing (0 skipped with the container up), ruff clean. The v1 pipeline is
+functionally complete: a signed webhook runs all four stages inline, and there is
+now a metrics layer and a dashboard over the results.
 
-Verified live against the running server, not only in tests: 3 events through the
-signed endpoint, 4 audit stages each, **0 stopping-rule violations**, nothing
-charged and nothing marked recovered. One event got a genuine
-`gemini-2.5-flash-lite` classification (`insufficient_funds`, 0.9); the other two
-hit the exhausted daily quota and degraded to audited escalations, which is the
-designed path firing for real rather than in a test.
+**Measured on a fresh 75-event batch replayed through the signed endpoint:**
 
-Next up is `Phase 6 — audit trail + metrics`. Known issue K (Gemini quota) is
-still the main demo risk and now needs a decision, since a live batch run today
-would classify roughly one event and escalate the rest for operational reasons.
-Known issues A and M both still gate how Phase 6 computes its headline numbers,
-though A's implementation half is now done.
+| metric | result |
+|---|---|
+| events processed | 75, all detected, 0 failures |
+| audit coverage | **75/75 with all four stages (100%)** |
+| stopping-rule violations | **0**, re-derived independently of the enforcing code |
+| decision latency | mean 9.4s, p95 26.2s, max 30.3s, **0 of 75 over the 60s target** |
+| classifier unavailable | **0** |
+| amount at risk | INR 132,990 |
+| amount recovered | INR 0 — correct, no provider webhook has confirmed a payment |
+
+The owner replaced the Gemini key mid-session, which forced a model change and
+turned out to be worth it: `gemini-3.1-flash-lite` scored **30/30 (100%)** on the
+eval with 0 classifier failures, and all 75 batch events classified without a
+single quota outage. Known issue K has gone from the biggest demo risk to
+resolved-in-practice.
+
+Next up is `Phase 7 — full batch run and write-up`. Four of the five
+`Definition of done` boxes are now provably ticked; the fifth is a judgement call
+that needs a human to read a trail and say whether it lands.
 
 ## Phase checklist
 
@@ -182,7 +190,15 @@ though A's implementation half is now done.
       Latency mean 3.0 s, median 2.2 s per distinct evidence set.
 
 ### Phase 3 caveats — read before quoting the accuracy number
-- **2 of 8 categories are unverified against the real model.** `card_expired`
+- **CLOSED in session 15: all 8 categories now have live measurement.** Re-running
+  the eval on the new key and `gemini-3.1-flash-lite` gave **30/30 correct (100%),
+  0 classifier failures**, covering 7 categories including `genuine_abandonment`,
+  which had never been reached before. `card_expired` was confirmed separately by a
+  direct probe through the real prompt and validation layers. Report:
+  `backend/diagnose_eval_v2_gemini31.json`. The 55/55 figure from session 12 was on
+  `gemini-2.5-flash-lite`, which this key can no longer reach; quote the newer run.
+  Original caveat retained below for context.
+  **2 of 8 categories are unverified against the real model.** `card_expired`
   (2 events) and `genuine_abandonment` (6 events) all hit the quota wall, so they
   have unit-test coverage but no live measurement. Re-run the eval on a fresh
   quota day to close this.
@@ -285,16 +301,96 @@ So only 17 events result in a customer being messaged. That is the honest pictur
 and it needs saying before Phase 6 computes a recovery rate: a large share of the
 batch is *correctly* not actioned. See Known issue M.
 
-### Phase 6 — Audit trail + metrics
-- [ ] Structured logging in place for all four stages
-- [ ] Audit log queryable per event_id
-- [ ] Metrics computed: $ recovered / $ at risk, detect→execute latency, guardrail violations (should be 0)
-- [ ] Simple dashboard or report view built
+### Phase 6 — Audit trail + metrics — COMPLETE
+- [x] Structured logging in place for all four stages
+      `app/logging_setup.py`. One compact JSON line per event per stage, emitted
+      from **`audit.record`** rather than by each stage: if a stage logged for
+      itself it could log without auditing or audit without logging, and the two
+      accounts of the same event would drift. Emitting from the one function that
+      writes the audit row makes them the same event by construction. Non-pipeline
+      records stay human-readable, because a demo with an unreadable console is
+      worse than one with two formats. Verified live in the server output.
+- [x] Audit log queryable per event_id
+      `GET /events/{event_id}/audit` (built in Phase 2, now exercised properly),
+      returning the ordered stage-by-stage trail. Confirmed live: 4 stages for a
+      real batch event.
+- [x] Metrics computed: $ recovered / $ at risk, detect→execute latency,
+      guardrail violations (should be 0) — `app/metrics.py`, plus
+      `python -m app.metrics` with `--json`, `--out` and `--fail-on-violation`.
+- [x] **Violations are RE-DERIVED, not read back.** The obvious implementation
+      counts decisions whose recorded checks all passed, which is circular: it
+      asks the enforcing code to grade itself, so a bug in `guardrails.py` would
+      be invisible in exactly the metric meant to catch it. Instead each rule is
+      reconstructed from raw data and tested against what actually happened —
+      including converting each send time into the *customer's* timezone, since
+      checking quiet hours in UTC would wave through a 3am message in Kolkata.
+      A test feeds the checker a row whose recorded flags all claim success while
+      the raw data shows a contact 9 days late, and asserts it is still caught.
+- [x] **Two extra violation classes the guardrails cannot see.**
+      `contact_frequency` is cross-event by nature, so a per-event check cannot
+      notice the same person being messaged twice; and `sent_before_due` catches
+      the end-to-end form of the session-14 deferral bug, where DECIDE deferred
+      correctly and EXECUTE dispatched anyway.
+- [x] Simple dashboard or report view built
+      `GET /dashboard` (`app/dashboard.py`), with `/api/metrics` and `/api/events`
+      as JSON counterparts. Server-rendered HTML, no build step, **no JavaScript
+      at all** — the drilldowns are `<details>` elements with the data already
+      inside them, so nothing has to fetch successfully while somebody is
+      watching, and they are keyboard-accessible for free.
+- [x] Every element `ui-context.md` asks for: headline metrics bar, batch table
+      with the specified columns, and a per-event detail view showing all four
+      stages including **every** guardrail result, passes included (constraint #5
+      made visible). Colour is never the only signal — each tinted pill also
+      states its meaning in words.
+- [x] Tests: `tests/test_metrics.py` (53), `tests/test_dashboard.py` (45),
+      `tests/test_logging_setup.py` (8). Suite 608 -> 708.
+- [x] **Verified on a real 75-event batch**, not unit tests alone: 100% audit
+      coverage, 0 violations, 0 classifier outages, 0 events over the 60s decision
+      budget, and a 648 KB dashboard rendering it all with no `<script>` tag.
+
+### Phase 6 — what the numbers do and do not say
+- **INR 0 recovered is correct, not a failure.** `amount_recovered` is only ever
+  set by a provider webhook confirming a payment, and no such webhook has arrived
+  because these are synthetic events whose links nobody clicks. The dashboard says
+  "not confirmed (awaiting a provider webhook)" rather than showing 0.00, which
+  would read as a measurement.
+- **40 of 75 events were withheld by a guardrail, nearly all on age.** A generated
+  batch deliberately spreads failures across a 14-day window while the hard stop is
+  7 days, so over half the batch is *correctly* stopped before any contact. That is
+  the rule working, but it makes for a thin demo. For Phase 7, generate a batch
+  whose events fall mostly inside the recovery window, or state the split up front.
+- **The batch ran at 23:15 IST, outside the 09:00-20:00 contact window**, so all 7
+  contactable events were deferred rather than sent and no real payment link or
+  message was created. A daytime run would show `contacted` instead. Worth
+  repeating the run in-hours before the demo.
+- **Decision latency is dominated by the Gemini call**: mean 9.4s against a 60s
+  budget. Comfortable, but it is one model round trip per distinct evidence set,
+  not our own processing, so a slower model would eat the margin quickly.
 
 ### Phase 7 — Full batch run (v1 done)
-- [ ] Full synthetic batch run end to end
-- [ ] All 4 `Definition of done` items from `project-overview.md` checked off
+- [x] Full synthetic batch run end to end
+      75 events generated fresh, signed, and replayed through the real endpoint:
+      75 detected, 0 failures, all four stages each. Done as Phase 6's verification
+      rather than as a separate exercise.
+- [~] All `Definition of done` items from `project-overview.md` — 4 of 5 provable,
+      the fifth needs a human:
+  - [x] Can replay a batch of N failure events through the full pipeline
+  - [x] Every event has a diagnosis, a decision, an action, and a logged outcome
+        (100% audit coverage over 75 events, asserted by query not by eye)
+  - [x] Recovery rate and $ recovered are computed and displayed — with the
+        denominator split per Known issue M, so correct restraint is not scored as
+        failure. The headline is honestly INR 0 recovered; see the note above.
+  - [x] No event violates a stopping rule, checked programmatically — 0 of 75,
+        re-derived independently rather than read back from the enforcing code
+  - [ ] **A stranger can read the audit log for any single event and understand
+        what happened and why, in under 30 seconds.** The trail is built and
+        rendered, but this one is a judgement about whether it *reads* well, and
+        self-certifying it would be worthless. Needs someone who has not seen the
+        code to open `/dashboard`, expand an event, and say.
 - [ ] Results written up with headline numbers
+      Numbers are in `backend/phase6_batch_metrics.json` and reproducible with
+      `python -m app.metrics --limit 75`. The write-up itself is not done, and
+      should wait for an in-hours batch run so it can report contacted events.
 
 ### Phase 8 — Stretch goals (only after Phase 7)
 - [ ] Promise-to-pay tracker
@@ -366,6 +462,80 @@ batch is *correctly* not actioned. See Known issue M.
   keys rather than trusting the standard as documentation.
 - **Postgres deferred to Phase 2.** Phase 0 needs no persistence; `db.py` and
   ORM models are not written yet. `DATABASE_URL` is configured but unused.
+
+### Session 15 (Phase 6)
+- **Latency CANNOT be derived from the stored timestamps, so it is persisted.**
+  This is the finding of the session and it is not obvious. `events.received_at`,
+  `decisions.decided_at` and `execution_results.executed_at` all default to
+  `func.now()`, and Postgres `now()` is `transaction_timestamp()` — stable for the
+  whole transaction. The pipeline writes all four stages in ONE transaction, so
+  those three columns resolve to the *identical* instant and any subtraction
+  between them yields exactly zero. A dashboard built on that would have proudly
+  reported 0 ms for every event. The measured `perf_counter` figures now go to a
+  new `event_latencies` table. Use `clock_timestamp()` if a real DB-side wall clock
+  is ever wanted.
+- **`event_latencies` is a new table, not new columns.** Same reasoning already
+  recorded for the Phase 3b/5 tables: this project uses `create_all()` with no
+  migrations, which creates missing tables but cannot add a column to an existing
+  one. A new table lands without dropping the demo data.
+- **BUG FIXED — `ExecutionRecord.executed_at` was falling through to its column
+  default** instead of being set from the outcome, so the row disagreed with the
+  time the audit trail reported for the same action. One line, no schema change.
+- **Violations are re-derived from raw data, never read back from the recorded
+  flags.** Counting decisions whose checks all passed would ask the enforcing code
+  to grade itself, making a `guardrails.py` bug invisible in precisely the metric
+  meant to catch it. Two rules can only be seen this way at all: contact frequency
+  is cross-event, and `sent_before_due` is the end-to-end form of the session-14
+  deferral bug. The recorded flags are consulted for exactly one thing — that all
+  four results are *present*, which is constraint #5 and is a question about the
+  trail rather than about the rule.
+- **Quiet hours are re-derived in the CUSTOMER's timezone.** Checking UTC hours
+  would pass a message sent at 3am in Kolkata. A test pins the same instant against
+  two zones and asserts it is a breach for one and clean for the other.
+- **A stopping rule only binds when somebody was actually contacted.** A 9-day-old
+  event that escalated to a human or scheduled a silent provider-side retry
+  disturbs nobody, so counting it as a violation would make correct behaviour look
+  unsafe. Tested per action.
+- **Server-rendered HTML, not React — a deliberate documented deviation.**
+  `architecture.md` and `code-standards.md` both name React, but under *Suggested*
+  stack, while `ui-context.md` says plainly that "a simple HTML page or a
+  Streamlit/Gradio app is enough" and "don't spend build time on visual polish
+  here; spend it on the pipeline". A Node toolchain for one static table is the
+  over-investment that doc explicitly warns against. Flagged to the owner at the
+  start of the phase rather than decided quietly.
+- **No JavaScript at all on the dashboard.** Drilldowns are `<details>` elements
+  rendered with their data already inside, so nothing needs to fetch successfully
+  mid-demo, and they are keyboard-accessible without any work. Colour is never the
+  only signal: every tinted pill also states its meaning in words, so the page
+  survives greyscale and a screen reader.
+- **Model-generated text is treated as untrusted input.** DIAGNOSE's `reasoning`
+  and provider `error_description` strings are rendered into HTML, so everything is
+  escaped. Tests inject `<script>` and `<img onerror>` through both paths.
+- **The dashboard sharpens the existing no-auth decision rather than changing it.**
+  `/health` leaked nothing; `/dashboard`, `/api/metrics` and `/api/events` return
+  customer ids, amounts at risk, decline reasons and payment-link ids for every
+  event. It stays unauthenticated because `ui-context.md` scopes this as a local
+  demo tool, and it is kept off `app.tunnel` — the three new paths were added to
+  `test_tunnel_app.py`'s local-only whitelist so a future mistake fails a test
+  instead of quietly becoming internet-facing.
+- **The escaping test caught a missing requirement.** `ui-context.md` asks the
+  detail view to show DIAGNOSE's root cause, confidence *and* one-line reasoning;
+  the reasoning was not being rendered at all. Found because the XSS test could not
+  locate its escaped payload on the page.
+- **Model changed to `gemini-3.1-flash-lite`, forced by the new key.** The
+  replacement key 404s on `gemini-2.5-flash-lite` ("no longer available to new
+  users"). Candidates were probed through the real prompt and validation layers
+  rather than trusting the API's own suggestion: `gemini-3.5-flash-lite` and
+  `gemini-flash-lite-latest` both return 400 INVALID_ARGUMENT against our
+  response-schema request, and 3.5's apparent pass was just the
+  classifier-unavailable fallback rather than an answer. 3.1-flash-lite classifies
+  correctly *and* still answers `unknown` on an opaque decline, which is the
+  behaviour session 12 had to fight for. `code-standards.md` calling the model
+  swappable rather than load-bearing is what made this a config change.
+- **Session 12's note that 3.1-flash-lite "invented `expired_card`" no longer
+  holds.** That predated the v2 prompt and the response-schema enum; retested, it
+  returns the correct enum value. Superseded rather than deleted, so the reasoning
+  trail stays readable.
 
 ### Session 14 (Phases 3b + 5)
 - **BUG FOUND AND FIXED — EXECUTE was discarding DECIDE's deferrals, which broke
@@ -713,20 +883,24 @@ batch is *correctly* not actioned. See Known issue M.
 
 ### Raised in session 5 (Phase 1) — need decisions
 
-N. **Deferred sends are recorded but nothing picks them up.** EXECUTE now
-   correctly holds a contact whose `scheduled_for` is in the future (session 14),
-   and the due time is persisted on `decisions.scheduled_for`. But no scanner
-   queries for due work, so a deferred send is never actually dispatched. For a
-   batch demo this is arguably fine and is certainly the safe failure direction —
-   nothing is sent at the wrong time — but it must not be described as "deferred
-   to the next window" without saying that the second half is not built. Phase 6
-   should either add a due-work sweep or report deferred events as their own
-   category, alongside Known issue M's split denominator.
+N. **PARTLY ADDRESSED in session 6 — deferred sends are reported as their own
+   category, but still nothing sweeps for them.** Phase 6 took the second of the
+   two options: `deferred_to_allowed_window` is a distinct disposition in the
+   metrics and on the dashboard, so a deferred send is visible rather than hidden
+   inside a skip count. The gap that remains is real — no scanner queries
+   `decisions.scheduled_for` for due work, so a deferred send is never actually
+   dispatched later. For a batch demo this is the safe failure direction (nothing
+   goes out at the wrong time), but it must not be described as "deferred to the
+   next window" without adding that the second half is not built. The last batch
+   run had 7 events in this state.
 
-A. **The 60-second latency target conflicts with the quiet-hours rule.**
-   **Implementation half DONE in session 14** — `pipeline.process_event()` records
-   `decision_latency_ms` and `send_latency_ms` separately, so nothing now forces a
-   blended number. The reporting decision below is still open.
+A. **RESOLVED in sessions 14-15 — two latency metrics, both implemented and
+   reported.** `pipeline.process_event()` measures `decision_latency_ms` and
+   `send_latency_ms` separately, `event_latencies` persists them, and both the
+   metrics report and the dashboard show them side by side with only decision
+   latency held against the 60-second target. Measured on 75 events: decision mean
+   9.4s, p95 26.2s, max 30.3s, **0 over budget**. The original note is retained
+   below because the reasoning still explains why there are two numbers.
    `architecture.md` → Real-time requirement asks for DETECT → EXECUTE (action
    sent) under 60 seconds. But ~36% of generated events arrive outside
    9am-8pm customer local time, and for those the *correct* behaviour is to
@@ -773,7 +947,17 @@ D. **22 of 75 events use fully documented Razorpay field tuples; 53 are
    behaviour, and every scenario records which it is. Do not cite an inferred
    tuple as "how Razorpay behaves".
 
-M. **"Not actioned" is not the same as "not recovered", and Phase 6 must not
+M. **RESOLVED in session 15 — the denominator is split, not blended.**
+   `EventRow.disposition` puts every event in exactly one mutually exclusive
+   bucket (`contacted`, `retry_scheduled`, `deferred_to_allowed_window`,
+   `withheld_by_guardrail`, `escalated_to_human`, `classifier_unavailable`,
+   `dispatch_failed`), and the recovery rate is reported against both the whole
+   batch and the actioned subset. Precedence is deliberate: a classifier outage is
+   reported as itself rather than as the escalation it produced, so an operational
+   failure stays distinguishable from a judgement. Last run: 40 withheld, 18
+   escalated, 10 retry scheduled, 7 deferred, 0 outages. Original note retained
+   below for the reasoning.
+   **"Not actioned" is not the same as "not recovered", and Phase 6 must not
    conflate them.** Running the batch through DECIDE, only 17 of 75 events result
    in a customer being messaged. 22 are stopped by a guardrail, 19 escalate to a
    human, and 20 schedule a provider-side retry with no message at all. Every one
@@ -788,8 +972,19 @@ M. **"Not actioned" is not the same as "not recovered", and Phase 6 must not
    Reporting one blended percentage would either overstate performance or make
    compliance look like failure. Needs a decision alongside Known issue A.
 
-K. **Gemini free-tier quota is the biggest risk to the final demo.** Measured,
-   not guessed: this key allows **20 `gemini-2.5-flash` requests per DAY**
+K. **RESOLVED IN PRACTICE in session 15 — the owner replaced the Gemini key.**
+   On the new key with `gemini-3.1-flash-lite`, a full 75-event batch classified
+   with **0 classifier outages**, and the eval scored 30/30 with 0 failures. The
+   old key's 20-requests-per-day ceiling is simply gone. Two things from the
+   original analysis still stand and are worth keeping: the evidence cache means
+   API calls scale with scenario *variety* rather than batch size (75 events needed
+   ~27 distinct classifications, and the eval showed 30 events costing 15 calls),
+   and a quota failure is still marked `classifier_unavailable` so an outage can
+   never be reported as cautious diagnosis. The new key's actual daily ceiling has
+   not been measured, so this is "no longer biting" rather than "known to be
+   large". Check before a demo. Original note retained below.
+   **Gemini free-tier quota is the biggest risk to the final demo.** Measured,
+   not guessed: the OLD key allowed **20 `gemini-2.5-flash` requests per DAY**
    (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`, quotaValue 20), plus a
    5/minute cap. That is far below the ~27 distinct classifications one batch
    needs. Mitigations already in place:
@@ -932,8 +1127,10 @@ Readiness now returns `missing_required_keys: []` and `warnings: []`.
 | 1 | ~~Sign-off on synthetic fixtures carrying the decline spread~~ **APPROVED** | done |
 | 2 | ~~Sign-off on the tunnel approach~~ **APPROVED — ngrok** | done |
 | 3 | ~~Decision on where customer timezone lives~~ **RESOLVED, no schema change** | done |
-| 4 | Decision on split latency metrics (Known issue A) | Phase 6 |
-| 5 | Confirm the ~23% `unknown` rate is acceptable (Known issue C) | Phase 3 |
+| 4 | ~~Decision on split latency metrics (Known issue A)~~ **BUILT BOTH WAYS, no decision needed.** Decision and send latency are measured, stored and reported separately; only decision latency is held against the 60s target. 0 of 75 over budget | done |
+| 5 | Confirm the ~23% `unknown` rate is acceptable (Known issue C). Last batch: 14 of 75 `unknown`, all escalated to a human, none from an outage | Phase 7 write-up |
+| 9 | **Read one event's audit trail on `/dashboard` and say whether it lands in under 30 seconds.** The last `Definition of done` box; self-certifying it would be worthless | Phase 7 close-out |
+| 10 | Re-run the batch between 09:00 and 20:00 IST so the demo shows contacted events rather than 7 deferrals | Phase 7 write-up |
 | 6 | ~~ngrok tunnel + real provider event~~ **DONE & VERIFIED.** 7 genuine `payment.failed` events from `acc_TVyhpQlwZfwE8a` detected via `https://prospectless-carlotta-unboding.ngrok-free.dev/webhooks/razorpay`, all HTTP 200 | done |
 | 7 | Clean the 32 pre-fix duplicate customer rows before any demo (see Known issue F) | Phase 6 metrics |
 | 8 | Go-ahead to create git commits | Phase 0 close-out |
@@ -1303,3 +1500,69 @@ scored as failure) and Known issue N (deferred sends are recorded but nothing
 sweeps for them yet). Known issue K, the Gemini daily quota, needs a decision
 before any live batch run — today's quota is spent, so a full run right now would
 classify roughly one event and escalate the rest for operational reasons.
+
+**Session 15 — Phase 6 complete. Metrics, structured logging and a dashboard.**
+
+Built `app/metrics.py`, `app/dashboard.py` and `app/logging_setup.py`, plus an
+`event_latencies` table. Suite 608 -> 708 tests, ruff clean.
+
+The finding of the session was that **the latency metric could not be derived from
+the data we were already storing**, and would have silently reported a perfect
+score. `events.received_at`, `decisions.decided_at` and
+`execution_results.executed_at` all default to `func.now()`, which Postgres
+resolves to the *transaction* start time, and the pipeline writes all four stages
+in one transaction. So all three columns hold the identical instant and any
+subtraction between them is exactly zero. A dashboard built on that would have
+announced 0 ms end-to-end latency and looked like a triumph. The measured
+`perf_counter` figures are now persisted instead.
+
+The design decision that took the most thought was how to count violations. The
+easy implementation counts decisions whose recorded guardrail checks all passed,
+which is circular — it asks the enforcing code to grade itself, so a bug in
+`guardrails.py` would be invisible in exactly the metric meant to catch it. So each
+rule is reconstructed from raw data and tested against what actually happened,
+including converting every send time into the *customer's* timezone, because
+checking quiet hours in UTC would wave through a 3am message in Kolkata. A test
+feeds the checker a row whose recorded flags all claim success while the raw data
+shows a contact nine days late, and asserts it is still caught. Two violation
+classes only exist this way at all: contact frequency is cross-event, and
+`sent_before_due` is the end-to-end form of the session-14 deferral bug.
+
+The owner replaced the Gemini API key mid-session, which forced a model change and
+paid off. The new key 404s on `gemini-2.5-flash-lite` ("no longer available to new
+users"). Candidates were probed through the real prompt and validation layers
+rather than trusting the API's own recommendation: `gemini-3.5-flash-lite` and
+`gemini-flash-lite-latest` both return 400 against our response-schema request, and
+3.5's apparent pass on the hard case was just the classifier-unavailable fallback
+rather than an answer. `gemini-3.1-flash-lite` classifies correctly *and* still
+answers `unknown` on an opaque decline, which is the behaviour session 12 had to
+fight for. It scored **30/30 with 0 failures** on the eval, which closes the Phase 3
+caveat that two categories had never been verified live, and Known issue K goes from
+biggest demo risk to no longer biting.
+
+Two smaller fixes: `ExecutionRecord.executed_at` was falling through to its column
+default rather than being set from the outcome, so the row disagreed with the audit
+trail about when the action ran. And the dashboard's XSS test could not find its
+escaped payload, which turned out to be because the DIAGNOSE reasoning
+`ui-context.md` asks for was not being rendered at all.
+
+Verified on a fresh 75-event batch replayed through the signed endpoint:
+**100% audit coverage** (75/75 with all four stages), **0 stopping-rule
+violations**, **0 classifier outages**, decision latency mean 9.4s against a 60s
+budget with **0 events over**, and a 648 KB dashboard rendering all of it with no
+`<script>` tag anywhere.
+
+Two things about that batch are worth stating rather than glossing. INR 0 recovered
+is correct: `amount_recovered` is only ever set by a provider webhook confirming a
+payment, and nobody clicks a synthetic link. And 40 of 75 events were withheld by a
+guardrail, almost all on age, because a generated batch spreads failures over 14
+days while the hard stop is 7 — the rule working, but it makes a thin demo. The run
+also happened at 23:15 IST, outside the contact window, so all 7 contactable events
+were deferred and no real link or message was created.
+
+**Next:** Phase 7 — the write-up. Four of the five `Definition of done` boxes are
+provable now; the fifth asks whether a stranger can read one event's trail and
+understand it in under 30 seconds, and that needs a person who has not seen the code
+to open `/dashboard` and say. Before the write-up, re-run the batch in-hours so it
+reports contacted events, and consider generating one whose events sit inside the
+7-day window.

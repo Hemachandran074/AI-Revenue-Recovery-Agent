@@ -63,12 +63,20 @@ class Settings(BaseSettings):
     razorpay_webhook_secret: str | None = None
 
     gemini_api_key: str | None = None
-    # flash-LITE, not flash. Measured, not preferred on taste: this key's
-    # gemini-2.5-flash allowance is 20 requests PER DAY, which cannot cover the
-    # ~27 distinct classifications a demo batch needs. Quota is per-model, and
-    # flash-lite has its own bucket plus lower latency (1.6s vs 2.1s). Newer
-    # 3.x models were tried and returned prose or invented enum values.
-    gemini_model: str = "gemini-2.5-flash-lite"
+    # flash-LITE, not flash. Measured, not preferred on taste: the plain
+    # gemini-2.5-flash allowance was 20 requests PER DAY, which cannot cover the
+    # ~27 distinct classifications a demo batch needs, and quota is per-model so
+    # a lite bucket is separate.
+    #
+    # Model choice is explicitly swappable rather than load-bearing
+    # (code-standards.md), and session 15 proved why that mattered: a new API key
+    # 404s on gemini-2.5-flash-lite ("no longer available to new users"). Probed
+    # the alternatives through the real prompt and validation layers rather than
+    # trusting the API's suggestion. gemini-3.5-flash-lite returns 400
+    # INVALID_ARGUMENT against our response-schema request; gemini-flash-lite-latest
+    # does the same; gemini-3.1-flash-lite classifies correctly AND still answers
+    # `unknown` on an opaque decline, which is the behaviour that actually matters.
+    gemini_model: str = "gemini-3.1-flash-lite"
     # Below this, a classification is rerouted to `unknown` and escalated to a
     # human rather than acted on. A probe returned a forced guess at exactly 0.70,
     # so the floor sits above that. `unknown` itself is exempt: certainty that the
