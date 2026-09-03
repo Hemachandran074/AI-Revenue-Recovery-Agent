@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 import asyncio
+from typing import Any
 from fastapi import FastAPI
 
 from app.config import get_settings
@@ -56,6 +57,9 @@ async def lifespan(app: FastAPI):
             pass
 
 
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 app = FastAPI(
     title="AI Revenue Recovery Agent",
     version="0.6.0",
@@ -64,8 +68,107 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Enable CORS for React frontend (Vite dev server)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(webhooks_router)
 app.include_router(dashboard_router)
+
+
+class SimulateRequest(BaseModel):
+    cause: str = "card"
+    amount: float = 499.0
+    contact: str = "+919566687795"
+    customer_id: str | None = None
+
+
+@app.post("/api/simulate", tags=["ops"])
+def api_simulate(req: SimulateRequest) -> dict[str, Any]:
+    """Trigger a real-time recovery pipeline simulation from the UI."""
+    import time
+    from app.db import session_scope
+    from app.pipeline import process_event
+    from app.demo_recovery import make_payload
+
+    cause_map = {
+        "card": "card",
+        "card_expired": "card",
+        "sca": "sca",
+        "sca_abandoned": "sca",
+        "friction": "friction",
+        "checkout_friction": "friction",
+        "funds": "funds",
+        "insufficient_funds": "funds",
+    }
+    canonical_cause = cause_map.get(req.cause.lower(), "card")
+    customer_id = req.customer_id or f"cust_ui_{int(time.time()) % 1000000}"
+    amount_minor = int(round(req.amount * 100))
+
+    payload = make_payload(
+        cause=canonical_cause,
+        amount_minor=amount_minor,
+        customer_id=customer_id,
+        contact=req.contact,
+    )
+
+    with session_scope() as session:
+        outcome = process_event(session, payload)
+        summary = outcome.summary()
+        summary["amount_inr"] = req.amount
+        summary["customer_id"] = customer_id
+        summary["contact"] = req.contact
+        if outcome.execution:
+            summary["recovery_link_url"] = outcome.execution.recovery_link_url
+            summary["provider_message_id"] = outcome.execution.result.provider_message_id
+            summary["skip_reason"] = outcome.execution.result.skip_reason
+            summary["failure_reason"] = outcome.execution.result.failure_reason
+        if outcome.diagnosis:
+            summary["reasoning"] = outcome.diagnosis.reasoning
+            summary["confidence"] = outcome.diagnosis.confidence
+        return summary
+
+
+class CreateOrderRequest(BaseModel):
+    amount: float = 199.0
+    contact: str = "+919566687795"
+    email: str = "recovery.demo@example.com"
+    customer_id: str | None = None
+
+
+@app.post("/api/create-order", tags=["ops"])
+def api_create_order(req: CreateOrderRequest) -> dict[str, Any]:
+    """Create an order for real interactive browser checkout simulation."""
+    import time
+    import razorpay
+    from app.config import get_settings
+
+    settings = get_settings()
+    client = razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
+    customer_id = req.customer_id or f"cust_live_{int(time.time()) % 1000000}"
+    amount_paise = int(round(req.amount * 100))
+
+    order = client.order.create({
+        "amount": amount_paise,
+        "currency": "INR",
+        "receipt": f"rcpt_{customer_id[:16]}",
+        "notes": {"customer_id": customer_id, "source": "revenue_recovery_live_test"},
+    })
+    order_id = str(order.get("id"))
+    checkout_url = f"http://127.0.0.1:8000/test-checkout?order_id={order_id}&amount={amount_paise}&contact={req.contact}&email={req.email}"
+
+    return {
+        "order_id": order_id,
+        "amount_inr": req.amount,
+        "customer_id": customer_id,
+        "checkout_url": checkout_url,
+        "key_id": settings.razorpay_key_id,
+    }
 
 
 @app.get("/health", tags=["ops"])
