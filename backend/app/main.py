@@ -26,6 +26,8 @@ at the webhook path.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+import asyncio
 from fastapi import FastAPI
 
 from app.config import get_settings
@@ -37,11 +39,29 @@ from app.webhooks import router as webhooks_router
 # Called at import so a stage log line emitted during startup is formatted too.
 configure_logging()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background auto-sync worker on application startup."""
+    from app.poller import run_poller_loop
+
+    task = asyncio.create_task(run_poller_loop(interval_seconds=3))
+    try:
+        yield
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
     title="AI Revenue Recovery Agent",
     version="0.6.0",
     summary="Detects revenue at risk, diagnoses root cause, executes a bounded "
             "recovery workflow. Test-mode/demo build only.",
+    lifespan=lifespan,
 )
 
 app.include_router(webhooks_router)
@@ -112,6 +132,71 @@ def event_audit_trail(event_id: str) -> dict[str, object]:
     with session_scope() as session:
         trail = audit.trail_for_event(session, event_id)
     return {"event_id": event_id, "stages": trail, "stage_count": len(trail)}
+
+
+from fastapi.responses import HTMLResponse
+
+
+@app.get("/test-checkout", response_class=HTMLResponse, tags=["ops"])
+def test_checkout(
+    order_id: str = "",
+    amount: int = 19900,
+    contact: str = "+919566687795",
+    email: str = "recovery.demo@example.com",
+) -> HTMLResponse:
+    """Interactive Razorpay Standard Checkout modal for real browser testing."""
+    settings = get_settings()
+    key_id = settings.razorpay_key_id or "rzp_test_TVX4xqAbr7KZPk"
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Razorpay Test Checkout - Real Simulation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    body {{ font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }}
+    .card {{ background: #1e293b; padding: 32px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 440px; width: 100%; border: 1px solid #334155; text-align: center; }}
+    h2 {{ margin-top: 0; color: #38bdf8; }}
+    p {{ color: #94a3b8; font-size: 14px; line-height: 1.5; }}
+    .btn {{ background: #0284c7; color: #fff; border: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 16px; transition: background 0.2s; }}
+    .btn:hover {{ background: #0369a1; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Razorpay Test Checkout</h2>
+    <p>Amount: <strong>₹{amount / 100:.2f}</strong></p>
+    <p>Contact: <code>{contact}</code></p>
+    <p>Click below to open the Razorpay Payment Gateway. Choose any payment method and test failure/cancellation.</p>
+    <button id="pay-btn" class="btn">Open Razorpay Checkout</button>
+  </div>
+  <script>
+    var options = {{
+      "key": "{key_id}",
+      "amount": "{amount}",
+      "currency": "INR",
+      "name": "Revenue Recovery Agent",
+      "description": "Real Test Simulation",
+      "order_id": "{order_id}",
+      "prefill": {{
+        "contact": "{contact}",
+        "email": "{email}"
+      }},
+      "theme": {{ "color": "#0284c7" }}
+    }};
+    var rzp = new Razorpay(options);
+    document.getElementById('pay-btn').onclick = function(e) {{
+      rzp.open();
+      e.preventDefault();
+    }};
+    window.onload = function() {{
+      setTimeout(function() {{ rzp.open(); }}, 500);
+    }};
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(html)
 
 
 @app.get("/readiness", tags=["ops"])

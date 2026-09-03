@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     # payday-aware timing "if data available"; we hold no payday data, so this is
     # a flat interval rather than a guess dressed up as one.
     insufficient_funds_retry_days: int = Field(default=3, ge=1, le=30)
-    min_hours_between_contacts: int = Field(default=24, ge=1)
+    min_hours_between_contacts: int = Field(default=24, ge=0)
     quiet_hours_start_local: int = Field(default=9, ge=0, le=23)
     quiet_hours_end_local: int = Field(default=20, ge=1, le=24)
     hard_stop_days: int = Field(default=7, ge=1)

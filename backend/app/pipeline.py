@@ -54,6 +54,7 @@ from app.channels import MessageSender, PaymentLinkFactory
 from app.diagnose import CLASSIFIER_UNAVAILABLE_PREFIX, LlmDiagnosis, SupportsGenerate
 from app.models import (
     Customer,
+    CustomerPayday,
     DecisionRecord,
     DiagnosisRecord,
     Event,
@@ -195,11 +196,15 @@ def process_event(
     )
 
     # ------------------------------------------------------------------ DECIDE
+    # Phase 8: payday-aware retry timing, used only when a payday is on record.
+    # Absent for essentially every customer, in which case the flat interval runs.
+    payday = session.get(CustomerPayday, event_record.customer_id)
     decision_context = decide.DecisionContext(
         customer_timezone=customer.timezone,
         first_failure_at=event_row.first_failure_at,
         last_contact_at=customer.last_contacted_at,
         now=evaluated_at,
+        payday_day_of_month=payday.day_of_month if payday else None,
     )
     decision = decide.decide_action(event_record, diagnosis, decision_context)
     decision_latency_ms = (time.perf_counter() - started) * 1000

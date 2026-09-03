@@ -3,34 +3,45 @@
 > Update this file after every completed task. This is the source of truth
 > for what's actually built vs. planned. Don't let it go stale.
 
-## Status: Phases 0-6 COMPLETE (commits still pending)
+## Status: Phases 0-8 COMPLETE (commits still pending)
+> One `Definition of done` item is deliberately left open because it needs a human
+> judgement, and one stretch goal was declined with reasons. Both below.
 
 ## Current phase
-708 tests passing (0 skipped with the container up), ruff clean. The v1 pipeline is
-functionally complete: a signed webhook runs all four stages inline, and there is
-now a metrics layer and a dashboard over the results.
+**783 tests passing** (0 skipped with the container up), ruff clean. The build is
+functionally complete end to end: a signed webhook runs all four stages inline, a
+provider webhook can confirm the money came back, and there is a metrics layer and
+dashboard over the results. Written up in **`RESULTS.md`**.
 
-**Measured on a fresh 75-event batch replayed through the signed endpoint:**
+**Measured on a 76-event in-hours run through the signed endpoint:**
 
 | metric | result |
 |---|---|
-| events processed | 75, all detected, 0 failures |
-| audit coverage | **75/75 with all four stages (100%)** |
+| events processed | 76, all detected, 0 failures |
+| audit coverage | **76/76 with all four stages (100%)** |
 | stopping-rule violations | **0**, re-derived independently of the enforcing code |
-| decision latency | mean 9.4s, p95 26.2s, max 30.3s, **0 of 75 over the 60s target** |
-| classifier unavailable | **0** |
-| amount at risk | INR 132,990 |
-| amount recovered | INR 0 — correct, no provider webhook has confirmed a payment |
+| decision latency | mean 6.0s, p95 7.4s, max 12.1s, **0 of 76 over the 60s target** |
+| classifier unavailable | **0**, all 8 root causes classified |
+| amount at risk | INR 223,975 |
+| amount recovered | INR 0 — mechanism built and tested, no link paid yet |
+| customers messaged | **1 real WhatsApp delivered**, 8 more prepared and withheld by the opt-in allowlist |
 
-The owner replaced the Gemini key mid-session, which forced a model change and
-turned out to be worth it: `gemini-3.1-flash-lite` scored **30/30 (100%)** on the
-eval with 0 classifier failures, and all 75 batch events classified without a
-single quota outage. Known issue K has gone from the biggest demo risk to
-resolved-in-practice.
+Two things to carry into a demo rather than discover during one:
 
-Next up is `Phase 7 — full batch run and write-up`. Four of the five
-`Definition of done` boxes are now provably ticked; the fifth is a judgement call
-that needs a human to read a trail and say whether it lands.
+1. **Recovered is zero because nobody has paid a link, not because the metric is
+   broken.** Outcome confirmation is built, wired and covered by 40 tests. The agent
+   generated a live test-mode link (`https://rzp.io/rzp/u7hNigG`, INR 499). Paying it
+   with `payment_link.paid` subscribed and ngrok pointed at `app.tunnel` turns the
+   headline number into something genuinely earned.
+2. **Only 1 of 76 customers was messaged**, and the reasons are all correct: 32
+   stopped on age (the fixture spreads failures over 14 days against a 7-day hard
+   stop), 35 correctly needed no message, and 8 were fully prepared — real hosted
+   payment links created — then withheld because the Twilio sandbox only delivers to
+   opted-in numbers.
+
+Remaining: the last `Definition of done` item needs a person who has not seen the
+code to read one event's trail on `/dashboard` and say whether it lands in under 30
+seconds. And commits have still never been authorised.
 
 ## Phase checklist
 
@@ -387,14 +398,70 @@ batch is *correctly* not actioned. See Known issue M.
         rendered, but this one is a judgement about whether it *reads* well, and
         self-certifying it would be worthless. Needs someone who has not seen the
         code to open `/dashboard`, expand an event, and say.
-- [ ] Results written up with headline numbers
-      Numbers are in `backend/phase6_batch_metrics.json` and reproducible with
-      `python -m app.metrics --limit 75`. The write-up itself is not done, and
-      should wait for an in-hours batch run so it can report contacted events.
+- [x] Results written up with headline numbers
+      **`RESULTS.md`** at the repo root. Numbers in `backend/phase7_results.json`,
+      reproducible with `python -m app.metrics --limit 76`.
+- [x] **Batch re-run in-hours**, so the contact path is exercised rather than
+      deferred. 76 events: 32 withheld by guardrail, 20 escalated, 15 retry
+      scheduled, 8 send refused (not opted in), **1 genuinely contacted**. All 8
+      root causes classified, **0 classifier outages**, **0 violations**,
+      **100% audit coverage**, **0 events over the 60s decision budget**.
 
-### Phase 8 — Stretch goals (only after Phase 7)
-- [ ] Promise-to-pay tracker
-- [ ] Payday-aware retry timing
+### Phase 7 addition — outcome confirmation (logged scope change)
+Not on the Phase 7 checklist. Built because success metric #1 could not otherwise
+exist: `amount_recovered_minor` had no writer anywhere in the codebase, so
+"$ recovered / $ at risk" was structurally zero and `project-overview.md`'s claim
+"then proves how much money it recovered" could not be made at all.
+`architecture.md`'s pipeline diagram has this arrow — *webhook confirms outcome ->
+audit log + recovered-$ counter updated* — and it had never been implemented.
+Flagged as a split rather than folded in silently.
+- [x] `app/outcomes.py` handles `payment_link.paid`, `invoice.paid`, `order.paid`
+      and `payment.captured`, wired into the webhook route **ahead of DETECT**,
+      which would otherwise acknowledge a paid event as "unsupported" with a 200
+      and silently never credit the money.
+- [x] Attribution recorded at three strengths, so the figure can be discounted
+      rather than trusted flat: `recovery_link_paid` (unambiguous — that link exists
+      only because of the recovery action), `same_invoice_paid`, and
+      `same_order_captured` (the customer may have retried unprompted).
+- [x] **One payment credits exactly one event.** A retry chain holds several at-risk
+      events for one order; crediting all of them would multiply the headline figure
+      by the length of the chain. The newest at-risk event wins.
+- [x] Redelivery cannot double-count: the amount is *assigned*, never incremented,
+      so idempotency holds by construction rather than by a guard someone must
+      remember.
+- [x] An unmatched payment is returned, never guessed at, and gets a 200. Somebody
+      paying normally must not become recovered revenue.
+- [x] Tests: `tests/test_outcomes.py` (40), including 8 driven over HTTP with signed
+      bodies, one asserting an unsigned body credits nothing, and one asserting a
+      confirmation lifts the headline metric off zero.
+
+### Phase 8 — Stretch goals — payday DONE, promise-to-pay declined
+- [~] **Promise-to-pay tracker — NOT BUILT, deliberately.** It requires a customer
+      to *make* a promise, which requires an inbound channel: a Twilio inbound
+      webhook plus intent parsing over free text. Neither is wired, so a `promises`
+      table would have no writer — dead code presented as a feature, which
+      `code-standards.md`'s no-over-engineering rule exists to prevent. Logged
+      rather than half-built. The plug-in point already exists: the session-14
+      deferral gate that holds a send until its due time is exactly what a promise
+      would drive. Cost to build properly: inbound webhook, intent extraction, a
+      promise table, and a DECIDE rule suppressing contact until the promised date.
+- [x] **Payday-aware retry timing — BUILT, without fabricating data.**
+      `architecture.md` asks for it "if data available". `customer_paydays` is the
+      *if available* half, with a `source` column so a value can never be mistaken
+      for something we inferred. **Nothing infers a payday from payment history**,
+      because this system has no history of *successful* payments to infer one from.
+      With no payday on record the behaviour is the flat interval — which is what
+      runs for every customer in the demo, and a test asserts that default path is
+      unchanged.
+      Two rules stop the payday path doing harm: the retry lands the day **after**
+      payday (salary credited on the 1st is not reliably spendable at 00:01, and an
+      early retry burns one of only three permitted attempts), and a payday falling
+      **beyond the hard stop is ignored**, since targeting it would schedule a retry
+      that can never run. Day-of-month clamps to the real month length, so a payday
+      of the 31st resolves in February instead of raising.
+      Tests: `tests/test_payday_retry.py` (27), including one asserting DECIDE still
+      contains no LLM call after the change.
+
 - Note: voice channel is out of scope — do not add it without an explicit decision logged below
 
 ## Decisions log
@@ -462,6 +529,71 @@ batch is *correctly* not actioned. See Known issue M.
   keys rather than trusting the standard as documentation.
 - **Postgres deferred to Phase 2.** Phase 0 needs no persistence; `db.py` and
   ORM models are not written yet. `DATABASE_URL` is configured but unused.
+
+### Session 16 (Phases 7 + 8)
+- **Outcome confirmation was built as a logged scope addition, because the headline
+  metric could not otherwise exist.** `amount_recovered_minor` had no writer
+  anywhere, so "$ recovered / $ at risk" was structurally zero — not "zero because
+  nothing was recovered", but zero because no code path was capable of setting it.
+  `architecture.md`'s diagram has the arrow and it had never been implemented.
+  Building a dashboard that reports a permanently-zero headline would have been
+  delivering a broken metric with a straight face.
+- **Only a signed provider webhook may write a recovered amount.** EXECUTE knows it
+  sent a message; it does not know whether anyone paid. Letting any earlier stage
+  set the number would turn a delivery statistic into a revenue claim.
+- **Attribution is stored at three strengths rather than blended.** Paying through a
+  link the agent created and sent is unambiguous. An order being captured later is
+  genuine recovered revenue but the customer may have retried unprompted, and a
+  reader should be able to discount that separately instead of trusting one figure.
+- **One payment credits exactly one event.** The bug this prevents is specific and
+  nasty: a retry chain holds several at-risk events for one order, so crediting each
+  would multiply the headline by the length of the chain — inflating the metric by
+  precisely the behaviour the agent exists to handle.
+- **Idempotency by construction, not by guard.** The recovered amount is assigned
+  rather than incremented, so a redelivered webhook is a no-op even if someone later
+  forgets why. Only the first confirmation writes an audit entry; two would read as
+  two separate payments.
+- **Confirmation is routed BEFORE DETECT.** DETECT would classify a paid event as
+  unsupported and answer 200 "ignored" — a completely silent failure in which every
+  request looks successful while the money is never credited. A test asserts the
+  status is not "ignored", specifically to pin that.
+- **`payment.captured` was removed from the "unsupported events" test list.** That
+  test failing when confirmation shipped was the tripwire working as designed, not
+  a regression.
+- **Filed the confirmation audit entry under `Stage.EXECUTE` rather than adding a
+  fifth stage.** `Stage` mirrors architecture.md's four pipeline stages, and
+  confirming the outcome of an action belongs to that action's story. Avoids a
+  taxonomy deviation and keeps the "all four stages" coverage metric meaningful.
+- **A refused send is now its own disposition, not a generic skip.**
+  `send_refused_not_opted_in`. The batch showed 8 events where the agent diagnosed
+  the cause, chose an action and created a *real* Razorpay-hosted payment link, and
+  only the final delivery was withheld because the number never opted in. Reporting
+  that as a plain skip hid the difference between an environment limitation of a
+  messaging sandbox and a decision about the customer.
+- **Payday-aware retry built without inventing the data.** `customer_paydays` with a
+  `source` column, sparse by design. Nothing infers a payday from payment history
+  because there are no successful payments to infer from. Two rules stop it doing
+  harm: the retry lands the day *after* payday, and a payday beyond the hard stop is
+  ignored rather than scheduling a retry that can never run. The no-payday path is
+  asserted to be identical to the old flat interval, since that is what actually
+  runs.
+- **Promise-to-pay declined rather than half-built.** No inbound channel exists, so
+  a promise has no source and the table would have no writer. Documented what it
+  would take and where it would plug in (the session-14 deferral gate).
+- **A real WhatsApp message was sent end to end**, to the one opted-in sandbox
+  number: DIAGNOSE `card_expired` -> DECIDE `send_update_payment_method_link` ->
+  EXECUTE created a real test-mode link and Twilio delivered it
+  (`SM381dde1f021d3dc3da05ea9f0a18e269`). That is the `contacted` disposition being
+  earned rather than simulated.
+- **Two arithmetic errors of mine, caught by tests rather than shipped.** A
+  days-until-payday expectation (Sept 20 -> Oct 5 is 15 days, not 16) and, in
+  session 15's dashboard work, a timezone assumption (June in Auckland is UTC+12, so
+  03:30 UTC is mid-afternoon, not late evening). Both were wrong test expectations
+  against correct code.
+- **`ExecutionRecord` has no ORM `relationship()` to `Event`**, only a bare foreign
+  key, so SQLAlchemy's unit of work does not know it must insert the event first.
+  Tests seeding both must flush between them. Worth knowing before writing more
+  fixtures.
 
 ### Session 15 (Phase 6)
 - **Latency CANNOT be derived from the stored timestamps, so it is persisted.**
@@ -883,6 +1015,28 @@ batch is *correctly* not actioned. See Known issue M.
 
 ### Raised in session 5 (Phase 1) — need decisions
 
+O. **The headline recovered figure is INR 0 until somebody pays a link.** Not a
+   defect and not a measurement: outcome confirmation is built, wired and covered by
+   40 tests, and `amount_recovered` is deliberately writable only by a signed
+   provider webhook. Nobody has paid a synthetic link, so there is nothing to
+   report. The dashboard says "not confirmed (awaiting a provider webhook)" rather
+   than showing 0.00.
+   **To close it:** pay the live test-mode link the agent generated
+   (`https://rzp.io/rzp/u7hNigG`, INR 499), with `payment_link.paid` subscribed in
+   the Razorpay dashboard and ngrok pointed at `app.tunnel` on 8001 so the callback
+   can reach us. Until then the honest phrasing is "the mechanism is proven, the
+   money is not asserted".
+
+P. **The demo batch is a 14-day backlog, not a live stream, and that is why 32 of
+   76 events are withheld on age.** The generator spreads failures across a 14-day
+   window while the hard stop is 7 days. In live operation an event arrives seconds
+   after the failure, so the hard stop cannot fire on a first attempt — meaning the
+   withheld share reflects fixture design rather than the agent's behaviour on real
+   traffic. Either say so up front when presenting, or generate a batch with
+   `window_days` inside the recovery window (the generator takes the parameter) and
+   accept that the hard-stop scenario then stops being exercised. Do not quietly
+   pick the flattering option without stating which was used.
+
 N. **PARTLY ADDRESSED in session 6 — deferred sends are reported as their own
    category, but still nothing sweeps for them.** Phase 6 took the second of the
    two options: `deferred_to_allowed_window` is a distinct disposition in the
@@ -1130,7 +1284,9 @@ Readiness now returns `missing_required_keys: []` and `warnings: []`.
 | 4 | ~~Decision on split latency metrics (Known issue A)~~ **BUILT BOTH WAYS, no decision needed.** Decision and send latency are measured, stored and reported separately; only decision latency is held against the 60s target. 0 of 75 over budget | done |
 | 5 | Confirm the ~23% `unknown` rate is acceptable (Known issue C). Last batch: 14 of 75 `unknown`, all escalated to a human, none from an outage | Phase 7 write-up |
 | 9 | **Read one event's audit trail on `/dashboard` and say whether it lands in under 30 seconds.** The last `Definition of done` box; self-certifying it would be worthless | Phase 7 close-out |
-| 10 | Re-run the batch between 09:00 and 20:00 IST so the demo shows contacted events rather than 7 deferrals | Phase 7 write-up |
+| 10 | ~~Re-run the batch in-hours~~ **DONE.** 76-event run at 09:30 IST produced 1 genuinely contacted event with a real WhatsApp delivery | done |
+| 11 | **Pay the live test-mode link** (`https://rzp.io/rzp/u7hNigG`) with `payment_link.paid` subscribed and ngrok on `app.tunnel`, to turn the recovered figure into an earned number (Known issue O) | headline metric |
+| 12 | Decide whether to present the 14-day backlog batch as-is or generate one inside the recovery window — and say which was used (Known issue P) | demo narrative |
 | 6 | ~~ngrok tunnel + real provider event~~ **DONE & VERIFIED.** 7 genuine `payment.failed` events from `acc_TVyhpQlwZfwE8a` detected via `https://prospectless-carlotta-unboding.ngrok-free.dev/webhooks/razorpay`, all HTTP 200 | done |
 | 7 | Clean the 32 pre-fix duplicate customer rows before any demo (see Known issue F) | Phase 6 metrics |
 | 8 | Go-ahead to create git commits | Phase 0 close-out |
@@ -1566,3 +1722,64 @@ understand it in under 30 seconds, and that needs a person who has not seen the 
 to open `/dashboard` and say. Before the write-up, re-run the batch in-hours so it
 reports contacted events, and consider generating one whose events sit inside the
 7-day window.
+
+**Session 16 — Phases 7 and 8 complete. The build is functionally done.**
+
+Wrote `RESULTS.md`, ran the batch in-hours, built outcome confirmation and
+payday-aware retry timing, and declined promise-to-pay with reasons. Suite
+708 -> 783 tests, ruff clean.
+
+The session turned on something found while writing the results document rather
+than while writing code: **the headline metric had no writer.** "$ recovered / $ at
+risk" is the first of `project-overview.md`'s four success metrics and the whole
+pitch ends "then proves how much money it recovered" — but `amount_recovered_minor`
+was set by nothing, anywhere. Not zero because nothing was recovered; zero because
+no code path was capable of changing it. `architecture.md`'s pipeline diagram has
+the closing arrow, *webhook confirms outcome -> recovered-$ counter updated*, and it
+had simply never been implemented. Publishing a dashboard whose headline figure was
+permanently zero would have been shipping a broken metric with a straight face, so
+it was built as a logged scope addition.
+
+Three decisions in it are load-bearing. Only a signed provider webhook may write
+that number, because EXECUTE knows it sent a message but not whether anyone paid.
+Attribution is stored at three strengths rather than blended, since paying through a
+link the agent sent is a far stronger claim than an order being captured later.
+And one payment credits exactly one event — a retry chain holds several at-risk
+events for one order, so crediting each would have multiplied the headline by the
+length of the chain, inflating the metric by precisely the behaviour the agent
+exists to handle.
+
+The routing detail matters more than it looks: confirmation runs *before* DETECT.
+DETECT would have classified a paid event as unsupported and answered 200 "ignored",
+which fails completely silently — every request looks successful while the money is
+never credited. There is now a test whose only job is to assert that status is not
+"ignored".
+
+Reporting got one thing more honest. The batch showed 8 events where the agent
+diagnosed the cause, chose an action and created a *real* Razorpay-hosted payment
+link, and only the final delivery was withheld because the number is not on the
+Twilio sandbox allowlist. Those were landing in a generic "skipped" bucket, which
+hid the difference between an environment limitation and a decision about the
+customer. They now have their own disposition.
+
+An in-hours run produced the first genuinely earned `contacted` event: DIAGNOSE said
+`card_expired`, DECIDE chose `send_update_payment_method_link`, EXECUTE created a
+real test-mode link and Twilio delivered the message. Final numbers on 76 events:
+**100% audit coverage, 0 stopping-rule violations, 0 classifier outages, all 8 root
+causes classified, 0 events over the 60-second decision budget**, INR 223,975 at
+risk, 1 customer messaged and 8 more prepared and withheld.
+
+For Phase 8, payday-aware retry was built without inventing the data it needs — a
+sparse `customer_paydays` table with a `source` column, nothing inferred from
+payment history because there are no successful payments to infer from, and a test
+asserting the no-payday path is identical to the old flat interval since that is
+what actually runs. Promise-to-pay was declined rather than half-built: it needs a
+customer to make a promise, which needs an inbound channel that does not exist, so
+the table would have had no writer.
+
+**Next:** two things, neither of which I can do alone. Someone who has not seen the
+code needs to read one event's trail on `/dashboard` and say whether it lands in
+under 30 seconds — the last `Definition of done` box, and self-certifying it would
+be worthless. And paying the live test-mode link the agent generated
+(`https://rzp.io/rzp/u7hNigG`) would turn the recovered figure from a proven
+mechanism into an earned number. Commits have still never been authorised.

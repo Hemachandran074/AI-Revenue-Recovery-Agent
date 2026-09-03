@@ -406,6 +406,23 @@ def test_a_failed_dispatch_is_not_a_violation() -> None:
             "deferred_to_allowed_window",
         ),
         (
+            {
+                "delivery_status": "skipped",
+                "skip_reason": (
+                    "recipient is not in TWILIO_WHATSAPP_TEST_RECIPIENTS; refusing "
+                    "to message a number that has not opted in"
+                ),
+            },
+            "send_refused_not_opted_in",
+        ),
+        (
+            {
+                "delivery_status": "skipped",
+                "skip_reason": "unusable recipient number: '9812'",
+            },
+            "send_refused_not_opted_in",
+        ),
+        (
             {"action": None, "delivery_status": None, "root_cause": None},
             "not_processed",
         ),
@@ -642,3 +659,73 @@ def test_report_flags_classifier_outages_as_operational() -> None:
     text = format_report(batch)
 
     assert "operational failure, not a diagnosis" in text
+
+
+# ------------------------------------------- a withheld send is its own thing
+
+
+def test_a_refused_send_is_not_reported_as_a_plain_skip() -> None:
+    """The action was fully prepared; only delivery was withheld.
+
+    Reporting it as a generic skip would hide that a real hosted payment link was
+    created and that the block was an opt-in limitation of the messaging sandbox
+    rather than a decision about the customer.
+    """
+    refused = row(
+        delivery_status="skipped",
+        recovery_link_id="plink_REAL01",
+        skip_reason=(
+            "recipient is not in TWILIO_WHATSAPP_TEST_RECIPIENTS; refusing to "
+            "message a number that has not opted in"
+        ),
+    )
+
+    assert refused.disposition == "send_refused_not_opted_in"
+    assert refused.send_was_refused is True
+
+
+def test_a_refused_send_does_not_count_as_actioned() -> None:
+    """Nothing reached the customer, so no recovery attempt actually landed."""
+    refused = row(
+        delivery_status="skipped",
+        skip_reason="recipient is not in TWILIO_WHATSAPP_TEST_RECIPIENTS; ...",
+    )
+
+    assert refused.is_actioned is False
+
+
+def test_a_refused_send_is_not_a_stopping_rule_violation() -> None:
+    """No message went out, so no contact rule could have been broken."""
+    refused = row(
+        delivery_status="skipped",
+        first_failure_at=NOW - timedelta(days=9),
+        skip_reason="recipient is not in TWILIO_WHATSAPP_TEST_RECIPIENTS; ...",
+    )
+
+    assert find_violations([refused]) == []
+
+
+def test_a_guardrail_block_still_outranks_a_refused_send() -> None:
+    """If a guardrail cancelled the action, that is why nothing was sent."""
+    blocked = row(
+        delivery_status="skipped",
+        blocked_reason="Stopped by hard_stop_7_days",
+        skip_reason="Blocked by guardrail: Stopped by hard_stop_7_days",
+    )
+
+    assert blocked.disposition == "withheld_by_guardrail"
+
+
+def test_a_deferral_outranks_a_refused_send() -> None:
+    """A deferred send never reached the sender, so it cannot have been refused."""
+    deferred = row(
+        delivery_status="skipped",
+        skip_reason="Deferred until 2026-06-16T03:30:00+00:00: ...",
+    )
+
+    assert deferred.disposition == "deferred_to_allowed_window"
+
+
+def test_a_successful_send_is_never_reported_as_refused() -> None:
+    assert row().send_was_refused is False
+    assert row().disposition == "contacted"

@@ -251,6 +251,22 @@ class EventRow:
         return bool(self.skip_reason and self.skip_reason.startswith("Deferred until"))
 
     @property
+    def send_was_refused(self) -> bool:
+        """The recipient never opted in, so the message was withheld.
+
+        Worth its own category rather than a generic skip: the recovery action was
+        fully prepared, including creating a real hosted payment link, and only the
+        final delivery was withheld. That is an environment limitation of a demo
+        messaging sandbox, not a decision the agent made about the customer, and
+        reporting it as a plain skip would hide the difference.
+        """
+        reason = self.skip_reason or ""
+        return (
+            "TWILIO_WHATSAPP_TEST_RECIPIENTS" in reason
+            or "unusable recipient number" in reason
+        )
+
+    @property
     def disposition(self) -> str:
         """Which mutually exclusive bucket this event falls in.
 
@@ -272,6 +288,8 @@ class EventRow:
             return "contacted"
         if self.was_deferred:
             return "deferred_to_allowed_window"
+        if self.send_was_refused:
+            return "send_refused_not_opted_in"
         if self.action == str(Action.SCHEDULE_RETRY):
             return "retry_scheduled"
         if self.action == str(Action.ESCALATE_TO_HUMAN_REVIEW):

@@ -117,6 +117,12 @@ def check_contact_frequency(
             passed=True,
             detail=f"No prior contact on record for {customer_id}.",
         )
+    if window_hours == 0:
+        return GuardrailCheck(
+            name=GuardrailName.CONTACT_FREQUENCY,
+            passed=True,
+            detail=f"Immediate contact enabled (0h delay required).",
+        )
 
     elapsed = now - last_contact_at
     window = timedelta(hours=window_hours)
@@ -146,7 +152,7 @@ def check_quiet_hours(customer_timezone: str, now: datetime) -> GuardrailCheck:
     start, end = settings.quiet_hours_start_local, settings.quiet_hours_end_local
     zone, used_fallback = resolve_timezone(customer_timezone)
     local = now.astimezone(zone)
-    passed = start <= local.hour < end
+    passed = (start == 0 and end >= 24) or (start <= local.hour < end)
 
     detail = (
         f"Customer-local time {local.strftime('%H:%M')} ({zone.key}) against an "

@@ -11,6 +11,10 @@ whether an event comes back:
   200 detected            processed
   200 duplicate           already seen; retrying would double-count
   200 ignored             a real event type we do not handle; never want it again
+  200 outcome_confirmed   a payment settled an event we had flagged as at risk
+  200 unmatched           a genuine payment that matches nothing we track. Still
+                          2xx: the delivery was valid and fully processed, and
+                          redelivering it would never produce a match
   400 malformed           shape is wrong, so a retry cannot help, but it is worth
                           surfacing rather than swallowing
   401 bad signature       could not be shown to come from Razorpay. Retryable on
@@ -31,7 +35,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Header, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app import detect, pipeline, signature
+from app import detect, outcomes, pipeline, signature
 from app.config import Settings, get_settings
 from app.db import get_db
 
@@ -48,7 +52,12 @@ async def razorpay_webhook(
     settings: Annotated[Settings, Depends(get_settings)],
     x_razorpay_signature: Annotated[str | None, Header()] = None,
 ) -> dict[str, Any]:
-    """Receive a Razorpay webhook, verify it, and run DETECT."""
+    """Receive a Razorpay webhook, verify it, and route it.
+
+    Three destinations: a paid event goes to outcome confirmation, an at-risk
+    event goes through the pipeline, and anything else is acknowledged and
+    ignored.
+    """
     # Raw bytes first. Nothing may parse this body before it is verified.
     body = await request.body()
 
@@ -69,6 +78,28 @@ async def razorpay_webhook(
         logger.warning("rejected webhook: body is not valid JSON")
         response.status_code = status.HTTP_400_BAD_REQUEST
         return {"status": "rejected", "reason": "invalid_json"}
+
+    # Paid events are handled before DETECT, which would reject them as an
+    # unsupported type. This is architecture.md's closing arrow: the only path
+    # allowed to state that money came back.
+    event_name = payload.get("event") if isinstance(payload, dict) else None
+    if event_name in outcomes.SUPPORTED_OUTCOME_EVENTS:
+        try:
+            result = outcomes.confirm_outcome(session, payload)
+        except outcomes.MalformedOutcomeError as exc:
+            logger.warning("rejected outcome webhook: %s", exc)
+            response.status_code = status.HTTP_400_BAD_REQUEST
+            return {
+                "status": "rejected",
+                "reason": "malformed_outcome",
+                "detail": str(exc),
+            }
+        if isinstance(result, outcomes.Unmatched):
+            # 200 deliberately. The delivery was valid and we processed it; there
+            # was simply nothing of ours to credit. A non-2xx would make Razorpay
+            # redeliver a payment that will never match.
+            return {"status": "unmatched", **result.to_dict()}
+        return {"status": "outcome_confirmed", **result.to_dict()}
 
     try:
         if settings.pipeline_run_inline:

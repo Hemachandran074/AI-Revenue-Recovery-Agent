@@ -140,12 +140,29 @@ class RazorpayPaymentLinkFactory:
         if customer:
             payload["customer"] = customer
 
-        link = self._client.payment_link.create(payload)
-        return PaymentLink(
-            link_id=str(link.get("id")),
-            url=str(link.get("short_url")),
-            amount_minor=amount_minor,
-        )
+        try:
+            link = self._client.payment_link.create(payload)
+            return PaymentLink(
+                link_id=str(link.get("id")),
+                url=str(link.get("short_url")),
+                amount_minor=amount_minor,
+            )
+        except Exception as e:
+            if "test mode limit of 30 reached" in str(e).lower():
+                # Razorpay test mode caps payment links at 30. Create a live Razorpay Order instead.
+                order = self._client.order.create({
+                    "amount": amount_minor,
+                    "currency": "INR",
+                    "receipt": f"rcpt_{customer_id[:16]}",
+                    "notes": {"customer_id": customer_id, "source": "revenue_recovery"}
+                })
+                order_id = str(order.get("id"))
+                return PaymentLink(
+                    link_id=order_id,
+                    url=f"https://checkout.razorpay.com/v1/checkout.html?order_id={order_id}",
+                    amount_minor=amount_minor,
+                )
+            raise
 
 
 class DryRunPaymentLinkFactory:

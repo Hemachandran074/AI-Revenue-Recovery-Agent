@@ -1,0 +1,89 @@
+{
+  "events_total": 76,
+  "money": {
+    "at_risk_minor": 22397500,
+    "recovered_minor": 0,
+    "actioned_at_risk_minor": 1263400,
+    "currency": "INR",
+    "at_risk": 223975.0,
+    "recovered": 0.0,
+    "actioned_at_risk": 12634.0,
+    "recovery_rate": 0.0,
+    "actioned_recovery_rate": 0.0
+  },
+  "decision_latency": {
+    "count": 76,
+    "mean_ms": 6034.81,
+    "p50_ms": 6261.22,
+    "p95_ms": 7413.35,
+    "max_ms": 12138.49,
+    "over_budget": 0
+  },
+  "send_latency": {
+    "count": 76,
+    "mean_ms": 6689.52,
+    "p50_ms": 6329.72,
+    "p95_ms": 10471.47,
+    "max_ms": 27698.04,
+    "over_budget": 0
+  },
+  "latency_budget_ms": 60000.0,
+  "violations": [],
+  "violation_count": 0,
+  "audit": {
+    "events": 76,
+    "fully_covered": 76,
+    "rate": 1.0,
+    "required_stages": [
+      "detect",
+      "diagnose",
+      "decide",
+      "execute"
+    ],
+    "incomplete": []
+  },
+  "disposition": {
+    "withheld_by_guardrail": 32,
+    "escalated_to_human": 20,
+    "retry_scheduled": 15,
+    "send_refused_not_opted_in": 8,
+    "contacted": 1
+  },
+  "by_root_cause": {
+    "insufficient_funds": 20,
+    "unknown": 13,
+    "genuine_abandonment": 12,
+    "sca_abandoned": 8,
+    "bank_risk_block": 7,
+    "checkout_friction": 6,
+    "network_error": 6,
+    "card_expired": 4
+  },
+  "by_action": {
+    "schedule_retry": 26,
+    "escalate_to_human_review": 20,
+    "send_reminder": 18,
+    "send_fresh_auth_link": 8,
+    "send_update_payment_method_link": 4
+  },
+  "by_delivery_status": {
+    "skipped": 75,
+    "sent": 1
+  },
+  "by_customer_outcome": {
+    "pending": 76
+  },
+  "by_event_type": {
+    "payment_failed": 58,
+    "checkout_abandoned": 14,
+    "invoice_overdue": 4
+  },
+  "classifier_unavailable": 0,
+  "guardrail_config": {
+    "max_recovery_attempts": 3,
+    "min_hours_between_contacts": 24,
+    "quiet_hours_start_local": 9,
+    "quiet_hours_end_local": 20,
+    "hard_stop_days": 7
+  }
+}

@@ -265,6 +265,42 @@ class DecisionRecord(Base):
     )
 
 
+class CustomerPayday(Base):
+    """When a customer is paid, if anybody has told us (Phase 8).
+
+    ``architecture.md`` asks for an insufficient-funds retry to be "payday-aware
+    if data available". This table is the *if available* part, and it is a separate
+    table rather than a column on ``customers`` for the reason recorded above:
+    ``create_all()`` cannot add a column to an existing table.
+
+    ``source`` exists so a value can never be mistaken for something we worked out
+    ourselves. The honest options today are:
+
+    ``merchant_supplied``  the merchant told us, from their own records
+    ``customer_stated``    the customer told us
+
+    Nothing infers a payday from payment history, because this system has no
+    history of *successful* payments to infer one from. A guess here would move a
+    retry to a date chosen by nothing and dress it up as insight.
+
+    Rows are expected to be sparse. Most customers will have none, and the flat
+    interval is what actually runs for them.
+    """
+
+    __tablename__ = "customer_paydays"
+
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("customers.customer_id"), primary_key=True
+    )
+    # 1-31. Clamped to the real last day when a month is shorter, so a payday of
+    # 31 still resolves in February instead of falling over.
+    day_of_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class EventLatency(Base):
     """Measured pipeline latency for one event (Phase 6).
 

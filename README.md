@@ -9,11 +9,29 @@ The `context/` directory is the source of truth for scope, architecture, and
 working rules. Read `context/ai-workflow-rules.md` first. This README is a
 navigation aid, not a substitute for those docs.
 
+## Start here
+
+| Document | For |
+|---|---|
+| **[GUIDE.md](GUIDE.md)** | How to run it, test it, see it, and how every stage works |
+| **[RESULTS.md](RESULTS.md)** | Headline numbers and what they do and do not prove |
+| `context/progress-tracker.md` | Every decision, known issue and session log |
+
 ## Status
 
-`Phase 0 — Setup`. Scaffold only: no pipeline stage is implemented yet. The four
-stage modules raise `NotImplementedError` on purpose so nothing returns a
-plausible-looking fake result. See `context/progress-tracker.md`.
+**All phases complete.** 783 tests, ruff clean. A signed webhook runs
+DETECT → DIAGNOSE → DECIDE → EXECUTE inline, a later provider webhook can confirm
+the money came back, and there is a metrics layer and dashboard over the results.
+
+Last 76-event run: **100% audit coverage, 0 stopping-rule violations, 0 classifier
+outages, 0 events over the 60-second decision budget.** INR 223,975 at risk,
+INR 0 recovered — the recovery mechanism is built and tested, but nobody has paid a
+synthetic link, and nothing except a signed provider webhook is permitted to claim
+recovered revenue. See RESULTS.md.
+
+Two things remain, neither of them code: paying a live test-mode link to make the
+recovered figure an earned number, and a human reading one event's audit trail to
+judge whether it lands in under 30 seconds.
 
 ## Layout
 
@@ -21,16 +39,32 @@ plausible-looking fake result. See `context/progress-tracker.md`.
 context/                 Source-of-truth docs (scope, architecture, standards, progress)
 backend/
   app/
-    main.py              FastAPI entrypoint: /health, /readiness
-    config.py            Env loading, test-mode key enforcement, readiness report
+    main.py              Ops app: dashboard + webhook          (port 8000, loopback)
+    tunnel.py            Public app: webhook only              (port 8001, tunnelled)
+    webhooks.py          Intake and routing
+    signature.py         HMAC verification, fails closed
+    detect.py            Stage 1 — DETECT
+    diagnose.py          Stage 2 — DIAGNOSE
+    decide.py            Stage 3 — DECIDE
+    guardrails.py        The four stopping rules
+    execute.py           Stage 4 — EXECUTE
+    channels.py          Twilio WhatsApp + Razorpay payment links
+    outcomes.py          Confirmation: the only writer of recovered $
+    pipeline.py          Orchestration
+    metrics.py           The four success metrics + CLI
+    dashboard.py         HTML + JSON reporting
+    audit.py             Audit writing, card-data gate
+    logging_setup.py     Structured JSON stage lines
+    models.py            8 ORM tables
     schemas.py           Pydantic models + fixed taxonomy, mirroring architecture.md
-    detect.py            Stage 1 — DETECT    (Phase 2, stub)
-    diagnose.py          Stage 2 — DIAGNOSE  (Phase 3, stub)
-    decide.py            Stage 3 — DECIDE    (Phase 4, stub)
-    execute.py           Stage 4 — EXECUTE   (Phase 5, stub)
-    guardrails.py        Stopping rules      (Phase 4, stub)
-  prompts/diagnose.md    Versioned DIAGNOSE system prompt (placeholder)
-  tests/                 pytest suite
+    config.py            Env loading, test-mode key enforcement, readiness report
+    replay.py            Batch replay CLI
+    diagnose_eval.py     Classifier scoring CLI
+    trigger_failure.py   Real test-mode link creator
+    simulation/          Event generator, decline catalogues, signing
+  prompts/diagnose.md    Versioned DIAGNOSE system prompt (v2)
+  fixtures/              Saved batch + real captured provider payloads
+  tests/                 21 files, 783 tests
 .env.example             Every required key, placeholder values only
 ```
 
@@ -211,8 +245,13 @@ matching the code. To add a root cause or action, edit `architecture.md` first.
 
 ## Security note
 
-This service has no authentication layer. That is a deliberate choice for a
-local demo tool (`context/ui-context.md`), which is why it binds to `127.0.0.1`
-by default. Do not expose it to a network or deploy it without adding auth.
-Provider webhook endpoints arrive in Phase 2 and require signature verification
-before any payload enters DETECT.
+`app.main` has no authentication layer. That is a deliberate choice for a local
+demo tool (`context/ui-context.md`), which is why it binds to `127.0.0.1` by
+default. Do not expose it to a network or deploy it without adding auth.
+
+The dashboard raises the stakes of that rather than changing it: `/dashboard`,
+`/api/metrics` and `/api/events` return customer ids, amounts at risk, decline
+reasons and payment-link ids for every event in the database. That is exactly why
+the public surface is a **different app** — `app.tunnel` contains only the
+signature-verified webhook route, so there is nothing on it to leak. Signature
+verification fails closed: with no secret configured, every webhook is rejected.

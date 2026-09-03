@@ -263,7 +263,10 @@ def test_malformed_but_signed_payload_is_rejected(db_session) -> None:
 
 
 @pytest.mark.parametrize(
-    "event_name", ["payment.captured", "refund.processed", "subscription.charged"]
+    # `payment.captured` used to be in this list and no longer belongs: outcome
+    # confirmation handles it now, because it is how the provider tells us money
+    # came back. This test failing when that shipped was the tripwire working.
+    "event_name", ["refund.processed", "subscription.charged", "payout.processed"]
 )
 def test_unsupported_events_are_acknowledged_not_retried(
     db_session, batch, event_name
@@ -358,10 +361,10 @@ def test_genuinely_unsupported_events_are_still_acknowledged(db_session, batch) 
     """
     client = _client(db_session)
     envelope = copy.deepcopy(batch.events[0].envelope)
-    envelope["event"] = "payment.captured"
+    envelope["event"] = "subscription.halted"
     response = _post(client, envelope)
     assert response.status_code == 200
-    assert response.json() == {"status": "ignored", "event": "payment.captured"}
+    assert response.json() == {"status": "ignored", "event": "subscription.halted"}
 
 
 def test_whole_batch_flows_through_the_signed_endpoint(db_session, batch) -> None:

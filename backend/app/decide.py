@@ -46,8 +46,9 @@ while still being an action that should happen.
 
 from __future__ import annotations
 
+import calendar
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from app import guardrails
@@ -81,37 +82,107 @@ class ActionPlan:
     note: str
 
 
-def _retry_delay_days() -> timedelta:
-    """Delay for an insufficient-funds retry.
+# A retry lands the day AFTER payday, not on it. Salary credited on the 1st is not
+# reliably spendable at 00:01 on the 1st, and a retry that arrives before the money
+# does burns one of only three permitted attempts.
+PAYDAY_BUFFER_DAYS = 1
 
-    ``architecture.md`` says "payday-aware if data available". We hold no payday
-    data, so this is a flat interval and payday awareness stays a Phase 8 stretch
-    goal rather than being faked with a guess about pay cycles.
+
+def _days_until_day_of_month(reference: date, day_of_month: int) -> int:
+    """Whole days from ``reference`` to the next occurrence of that day.
+
+    Clamped to the last real day of the target month, so a payday of the 31st
+    resolves to the 28th in February instead of raising.
     """
-    return timedelta(days=get_settings().insufficient_funds_retry_days)
+    def clamped(year: int, month: int) -> date:
+        last = calendar.monthrange(year, month)[1]
+        return date(year, month, min(day_of_month, last))
+
+    this_month = clamped(reference.year, reference.month)
+    if this_month > reference:
+        return (this_month - reference).days
+
+    year = reference.year + (1 if reference.month == 12 else 0)
+    month = 1 if reference.month == 12 else reference.month + 1
+    return (clamped(year, month) - reference).days
+
+
+def _retry_delay_days(
+    payday_day_of_month: int | None = None,
+    *,
+    now: datetime | None = None,
+    customer_timezone: str | None = None,
+) -> timedelta:
+    """Delay for an insufficient-funds retry, payday-aware when data exists.
+
+    ``architecture.md`` asks for "payday-aware if data available". Available means
+    somebody told us (see :class:`~app.models.CustomerPayday`); nothing is inferred
+    from payment history, because there is no history of successful payments to
+    infer from.
+
+    With no payday known this is the flat configured interval, which is what runs
+    for essentially every customer in the demo.
+
+    Two rules keep the payday path from doing harm:
+
+    * **The retry lands a day after payday**, not on it.
+    * **A payday beyond the hard stop is ignored.** If the next payday falls after
+      the 7-day window closes, targeting it would schedule a retry that can never
+      run, which is worse than a flat interval that at least fires. The flat
+      interval wins in that case.
+    """
+    settings = get_settings()
+    flat = timedelta(days=settings.insufficient_funds_retry_days)
+    if payday_day_of_month is None:
+        return flat
+
+    reference = now or datetime.now(UTC)
+    if customer_timezone:
+        zone, _ = guardrails.resolve_timezone(customer_timezone)
+        reference = reference.astimezone(zone)
+
+    days = _days_until_day_of_month(reference.date(), payday_day_of_month)
+    candidate = timedelta(days=days + PAYDAY_BUFFER_DAYS)
+
+    if candidate >= timedelta(days=settings.hard_stop_days):
+        return flat
+    return candidate
 
 
 # Copied from architecture.md's "Fixed action set". DECIDE may only choose from
 # this table. Adding a row requires updating architecture.md FIRST
 # (ai-workflow-rules.md -> Scope discipline); a contract test enforces that the
 # table and the doc agree.
-def action_table() -> dict[RootCause, ActionPlan]:
+def action_table(context: DecisionContext | None = None) -> dict[RootCause, ActionPlan]:
+    """The fixed action set.
+
+    ``context`` only affects the insufficient-funds delay, which is payday-aware
+    when the customer's payday is known. It stays optional so the contract test can
+    compare the table against ``architecture.md`` without inventing a context.
+    """
+    retry_delay = _retry_delay_days(
+        context.payday_day_of_month if context else None,
+        now=context.now if context else None,
+        customer_timezone=context.customer_timezone if context else None,
+    )
+    max_attempts = get_settings().max_recovery_attempts
     return {
         RootCause.CARD_EXPIRED: ActionPlan(
             action=Action.SEND_UPDATE_PAYMENT_METHOD_LINK,
             channel=Channel.WHATSAPP,
             delay=timedelta(0),
-            max_repeats=1,
+            max_repeats=max_attempts,
             note="No retry attempt: a retry cannot succeed on an expired card.",
         ),
         RootCause.INSUFFICIENT_FUNDS: ActionPlan(
             action=Action.SCHEDULE_RETRY,
             channel=Channel.NONE,
-            delay=_retry_delay_days(),
-            max_repeats=get_settings().max_recovery_attempts,
+            delay=retry_delay,
+            max_repeats=max_attempts,
             note=(
                 "Provider-sanctioned retry after a delay. The one cause where "
-                "waiting genuinely helps. Payday-aware timing is a stretch goal."
+                "waiting genuinely helps. Payday-aware when a payday is on record; "
+                "a flat interval otherwise, never a guess about pay cycles."
             ),
         ),
         RootCause.BANK_RISK_BLOCK: ActionPlan(
@@ -125,7 +196,7 @@ def action_table() -> dict[RootCause, ActionPlan]:
             action=Action.SEND_FRESH_AUTH_LINK,
             channel=Channel.WHATSAPP,
             delay=timedelta(0),
-            max_repeats=1,
+            max_repeats=max_attempts,
             note=(
                 "The customer completes 3DS themselves. We never complete "
                 "authentication on their behalf (constraint #2)."
@@ -135,21 +206,21 @@ def action_table() -> dict[RootCause, ActionPlan]:
             action=Action.SCHEDULE_RETRY,
             channel=Channel.NONE,
             delay=timedelta(hours=1),
-            max_repeats=1,
+            max_repeats=max_attempts,
             note="Single quiet retry, then stop.",
         ),
         RootCause.CHECKOUT_FRICTION: ActionPlan(
             action=Action.SEND_REMINDER,
             channel=Channel.WHATSAPP,
             delay=timedelta(0),
-            max_repeats=1,
+            max_repeats=max_attempts,
             note="One reminder; no repeat unless the customer re-engages.",
         ),
         RootCause.GENUINE_ABANDONMENT: ActionPlan(
             action=Action.SEND_REMINDER,
             channel=Channel.WHATSAPP,
             delay=timedelta(0),
-            max_repeats=1,
+            max_repeats=max_attempts,
             note="One reminder, then stop. Do not chase further.",
         ),
         RootCause.UNKNOWN: ActionPlan(
@@ -190,6 +261,10 @@ class DecisionContext:
     first_failure_at: datetime
     last_contact_at: datetime | None = None
     now: datetime | None = None
+    # Phase 8. Day of the month the customer is paid, when somebody has told us.
+    # None for almost every customer, which is why the flat retry interval is what
+    # actually runs. Never inferred from payment history.
+    payday_day_of_month: int | None = None
 
     def evaluated_at(self) -> datetime:
         return self.now or datetime.now(UTC)
@@ -221,7 +296,7 @@ def decide_action(
     calls, no clock reads unless ``context.now`` is omitted, no LLM.
     """
     now = context.evaluated_at()
-    plan = action_table()[diagnosis.root_cause]
+    plan = action_table(context)[diagnosis.root_cause]
 
     checks = guardrails.run_all_checks(
         event,

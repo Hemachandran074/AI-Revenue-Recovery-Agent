@@ -54,6 +54,7 @@ DISPOSITION_LABELS: dict[str, tuple[str, str]] = {
     "contacted": ("Contacted", "good"),
     "retry_scheduled": ("Retry scheduled", "good"),
     "deferred_to_allowed_window": ("Deferred to allowed window", "neutral"),
+    "send_refused_not_opted_in": ("Send refused, not opted in", "warn"),
     "withheld_by_guardrail": ("Withheld by guardrail", "neutral"),
     "escalated_to_human": ("Escalated to human", "neutral"),
     "classifier_unavailable": ("Classifier unavailable", "warn"),
@@ -277,6 +278,32 @@ def _count_table(title: str, counts: dict[str, int]) -> str:
     </div>"""
 
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+def _format_dt(dt: datetime | None) -> str:
+    """Concise timestamp for table rows: YYYY-MM-DD HH:MM:SS."""
+    if dt is None:
+        return "-"
+    try:
+        local = dt.astimezone(ZoneInfo("Asia/Kolkata"))
+        return local.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _format_dt_full(dt: datetime | None) -> str:
+    """Detailed timestamp with IST & UTC for facts and audit log stages."""
+    if dt is None:
+        return "-"
+    try:
+        ist = dt.astimezone(ZoneInfo("Asia/Kolkata"))
+        utc = dt.astimezone(ZoneInfo("UTC"))
+        return f"{ist.strftime('%Y-%m-%d %H:%M:%S IST')} ({utc.strftime('%H:%M:%S UTC')})"
+    except Exception:
+        return dt.isoformat()
+
+
 def _render_table(rows: list[metrics_module.EventRow]) -> str:
     if not rows:
         return """<section aria-labelledby="batch">
@@ -292,6 +319,7 @@ def _render_table(rows: list[metrics_module.EventRow]) -> str:
     <thead>
       <tr>
         <th scope="col">Event</th>
+        <th scope="col">Timestamp (IST)</th>
         <th scope="col">Type</th>
         <th scope="col">Root cause</th>
         <th scope="col">Action</th>
@@ -318,6 +346,7 @@ def _render_row(row: metrics_module.EventRow) -> str:
     trail_class = "" if stage_count >= 4 else "warn-text"
     return f"""      <tr>
         <th scope="row"><code>{escape(row.event_id[:8])}</code></th>
+        <td><span class="muted" style="white-space: nowrap;">{_format_dt(row.received_at)}</span></td>
         <td>{escape(row.event_type)}</td>
         <td>{escape(row.root_cause or "-")}</td>
         <td>{escape(row.action or "-")}</td>
@@ -355,17 +384,22 @@ def _render_detail(row: metrics_module.EventRow, trail: list[AuditLogEntry]) -> 
       <code>{escape(row.event_id[:8])}</code>
       <span class="pill {tone}">{escape(label)}</span>
       <span class="muted">{escape(row.event_type)}
+        &middot; {_format_dt(row.received_at)}
         &middot; {escape(row.root_cause or "no diagnosis")}
         &middot; {escape(row.action or "no decision")}
         &middot; {_money(row.amount_minor)}</span>
     </summary>
     <dl class="facts">
       <dt>Event id</dt><dd><code>{escape(row.event_id)}</code></dd>
-      <dt>Customer</dt><dd><code>{escape(row.customer_id)}</code></dd>
+      <dt>Received at</dt><dd>{_format_dt_full(row.received_at)}</dd>
+      <dt>First failure at</dt><dd>{_format_dt_full(row.first_failure_at)}</dd>
+      <dt>Customer</dt><dd><code>{escape(row.customer_id)}</code> ({escape(row.customer_timezone)})</dd>
       <dt>Decline code</dt><dd>{escape(row.decline_code or "-")}</dd>
       <dt>Prior attempts</dt><dd>{row.prior_attempts}</dd>
       <dt>Root cause</dt><dd>{_diagnosis(row)}</dd>
       <dt>Why</dt><dd>{escape(row.reasoning or "-")}</dd>
+      <dt>Executed at</dt><dd>{_format_dt_full(row.executed_at)}</dd>
+      <dt>Scheduled for</dt><dd>{_format_dt_full(row.scheduled_for)}</dd>
       <dt>Decision latency</dt><dd>{_ms(row.decision_latency_ms)}</dd>
       <dt>Send latency</dt><dd>{_ms(row.send_latency_ms)}</dd>
       <dt>Amount recovered</dt><dd>{_recovered(row)}</dd>
@@ -381,9 +415,9 @@ def _render_stage(entry: AuditLogEntry) -> str:
         if entry.notes
         else ""
     )
-    when = entry.timestamp.isoformat() if entry.timestamp else "-"
+    when = _format_dt_full(entry.timestamp)
     return f"""    <div class="stage">
-      <h4>{escape(entry.stage.upper())} <span class="muted">{escape(when)}</span></h4>
+      <h4>{escape(entry.stage.upper())} <span class="badge-time">{escape(when)}</span></h4>
       {notes}
       <div class="cols">
         <div><h5>Input</h5>{_kv(entry.input_summary)}</div>
@@ -550,6 +584,7 @@ thead th { background: #eef1f4; font-size: 12px; text-transform: uppercase;
   padding: 6px 10px; margin: 0 0 8px; }
 .violations { font-size: 13px; }
 .muted { color: #55606c; font-size: 12px; font-weight: 400; }
+.badge-time { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: #eef1f4; padding: 2px 6px; border-radius: 4px; color: #48525d; border: 1px solid #d7dbe0; margin-left: 6px; font-weight: normal; }
 .warn-text { color: #6b4500; font-weight: 600; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 footer { padding: 16px 24px; color: #48525d; font-size: 13px;
@@ -564,6 +599,7 @@ footer { padding: 16px 24px; color: #48525d; font-size: 13px;
   .aside { background: #22272c; color: #c3cad1; }
   h2 { border-color: #333a42; }
   .metric .label, .metric .note, .muted, .facts dt, h3, h5 { color: #a8b1ba; }
+  .badge-time { background: #24292f; border-color: #333a42; color: #a8b1ba; }
   .batch tbody tr:hover { background: #24292f; }
   .metric.bad, .bad-banner { background: #2a1d1d; }
   .metric.warn, .notes { background: #2a2419; }

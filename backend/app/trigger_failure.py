@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 
 import razorpay
 
@@ -108,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--amount", type=float, default=499.0,
                         help="Amount in rupees (default 499).")
-    parser.add_argument("--customer-id", default="cust_live_test_001",
+    parser.add_argument("--customer-id", default=None,
                         help="Written to notes.customer_id, which DETECT reads.")
     parser.add_argument("--email", default="recovery.demo@example.com")
     # Razorpay rejects contacts with repeating digit runs (e.g. +919999999999)
@@ -151,32 +152,44 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     amount_paise = int(round(args.amount * 100))
+    customer_id = args.customer_id or f"cust_live_{int(time.time()) % 1000000}"
+    link_url = ""
+    link_id = ""
     try:
         link = create_link(
             amount_paise=amount_paise,
             description="Revenue recovery agent - deliberate failure test",
-            customer_id=args.customer_id,
+            customer_id=customer_id,
             email=args.email,
             contact=args.contact,
         )
+        link_id = str(link.get("id"))
+        link_url = str(link.get("short_url"))
     except razorpay.errors.BadRequestError as exc:
-        # Report Razorpay's own validation message plainly; a traceback here
-        # obscures what is almost always a fixable input problem.
         print(f"Razorpay rejected the request: {exc}", file=sys.stderr)
-        print(
-            "Common causes: an implausible --contact (repeated digits are "
-            "refused), a malformed --email, or an amount below the minimum.",
-            file=sys.stderr,
-        )
         return 1
+    except Exception as exc:
+        if "test mode limit of 30 reached" in str(exc).lower():
+            order = client.order.create({
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": f"rcpt_{customer_id[:16]}",
+                "notes": {"customer_id": customer_id, "source": "revenue_recovery_live_test"},
+            })
+            link_id = str(order.get("id"))
+            link_url = (
+                f"http://127.0.0.1:8000/test-checkout?order_id={link_id}"
+                f"&amount={amount_paise}&contact={args.contact}&email={args.email}"
+            )
+        else:
+            raise
 
-    print("Created test-mode Payment Link")
-    print(f"  id          : {link.get('id')}")
+    print("Created test-mode Payment Session")
+    print(f"  id          : {link_id}")
     print(f"  amount      : Rs {amount_paise / 100}")
-    print(f"  status      : {link.get('status')}")
-    print(f"  customer_id : {args.customer_id}  (DETECT reads notes.customer_id)")
+    print(f"  customer_id : {customer_id}  (DETECT reads notes.customer_id)")
     print()
-    print(f"  OPEN THIS -> {link.get('short_url')}")
+    print(f"  OPEN THIS -> {link_url}")
     print()
     print("Then make it FAIL:")
     for method, how in FAILURE_RECIPES:

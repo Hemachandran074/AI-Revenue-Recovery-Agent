@@ -33,3 +33,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/settings.json
+
+GUIDE.md
+RESULTS.md
