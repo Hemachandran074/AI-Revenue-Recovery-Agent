@@ -94,7 +94,7 @@ def api_simulate(req: SimulateRequest) -> dict[str, Any]:
     import time
     from app.db import session_scope
     from app.pipeline import process_event
-    from app.demo_recovery import make_payload
+    from app.demo_recovery import CAUSES, build_envelope
 
     cause_map = {
         "card": "card",
@@ -110,24 +110,28 @@ def api_simulate(req: SimulateRequest) -> dict[str, Any]:
     customer_id = req.customer_id or f"cust_ui_{int(time.time()) % 1000000}"
     amount_minor = int(round(req.amount * 100))
 
-    payload = make_payload(
-        cause=canonical_cause,
-        amount_minor=amount_minor,
-        customer_id=customer_id,
+    envelope = build_envelope(
+        cause=CAUSES[canonical_cause],
+        amount_paise=amount_minor,
         contact=req.contact,
+        customer_id=customer_id,
     )
 
     with session_scope() as session:
-        outcome = process_event(session, payload)
+        outcome = process_event(session, envelope)
         summary = outcome.summary()
         summary["amount_inr"] = req.amount
         summary["customer_id"] = customer_id
         summary["contact"] = req.contact
         if outcome.execution:
-            summary["recovery_link_url"] = outcome.execution.recovery_link_url
-            summary["provider_message_id"] = outcome.execution.result.provider_message_id
-            summary["skip_reason"] = outcome.execution.result.skip_reason
-            summary["failure_reason"] = outcome.execution.result.failure_reason
+            summary["recovery_link_url"] = (
+                outcome.execution.recovery_link.short_url
+                if outcome.execution.recovery_link
+                else None
+            )
+            summary["provider_message_id"] = outcome.execution.provider_message_id
+            summary["skip_reason"] = outcome.execution.skip_reason
+            summary["failure_reason"] = outcome.execution.failure_reason
         if outcome.diagnosis:
             summary["reasoning"] = outcome.diagnosis.reasoning
             summary["confidence"] = outcome.diagnosis.confidence
